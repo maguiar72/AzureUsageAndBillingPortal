@@ -21,6 +21,10 @@ return [
         'user'    => 'azure_portal',
         'pass'    => 'TROQUE_ESTA_SENHA',
         'charset' => 'utf8mb4',
+        // TLS. Em MySQL local deixe false; no Azure MySQL Flexible use true
+        // e, opcionalmente, aponte ssl_ca para o CA (verificacao estrita).
+        'ssl'     => false,
+        'ssl_ca'  => null,
     ],
 
     // -----------------------------------------------------------------
@@ -31,6 +35,10 @@ return [
     //  "Reader") ao service principal em cada subscription monitorada.
     // -----------------------------------------------------------------
     'azure' => [
+        // 'client_secret' (service principal) ou 'managed_identity'
+        // (recomendado quando hospedado na Azure - sem segredos).
+        'auth_method'   => 'client_secret',
+
         'tenant_id'     => 'SEU_TENANT_ID',
         'client_id'     => 'SEU_CLIENT_ID',
         'client_secret' => 'SEU_CLIENT_SECRET',

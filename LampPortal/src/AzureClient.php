@@ -24,11 +24,23 @@ class AzureClient
     }
 
     /**
-     * Obtem um access token (client credentials) para o tenant informado.
+     * Obtem um access token para chamar o Azure Resource Manager.
+     *
+     * Suporta dois metodos (config 'auth_method'):
+     *   - 'managed_identity' (recomendado na Azure): usa a Managed Identity
+     *     do Container App / App Service / VM. Sem segredos.
+     *   - 'client_secret': fluxo OAuth2 client credentials (service principal).
+     *
      * Faz cache em memoria durante a execucao.
      */
     public function getAccessToken(string $tenantId): string
     {
+        $method = $this->cfg['auth_method'] ?? 'client_secret';
+
+        if ($method === 'managed_identity') {
+            return $this->getManagedIdentityToken();
+        }
+
         if (isset($this->tokenCache[$tenantId])) {
             return $this->tokenCache[$tenantId];
         }
@@ -57,6 +69,65 @@ class AzureClient
         }
 
         return $this->tokenCache[$tenantId] = $data['access_token'];
+    }
+
+    /**
+     * Obtem um token via Managed Identity.
+     *
+     * - Em Container Apps / App Service: usa IDENTITY_ENDPOINT + IDENTITY_HEADER
+     *   (api-version 2019-08-01, header X-IDENTITY-HEADER).
+     * - Em VM / IMDS: fallback para 169.254.169.254 (header Metadata: true).
+     *
+     * Para identidade atribuida pelo usuario (user-assigned), informe o
+     * client_id da identidade em config 'client_id'.
+     */
+    private function getManagedIdentityToken(): string
+    {
+        if (isset($this->tokenCache['__mi__'])) {
+            return $this->tokenCache['__mi__'];
+        }
+
+        $resource = rtrim($this->cfg['management_url'], '/'); // https://management.azure.com
+        $clientId = $this->cfg['client_id'] ?? '';
+
+        $identityEndpoint = getenv('IDENTITY_ENDPOINT') ?: '';
+        $identityHeader   = getenv('IDENTITY_HEADER') ?: '';
+
+        if ($identityEndpoint !== '' && $identityHeader !== '') {
+            // Container Apps / App Service
+            $url = $identityEndpoint
+                 . (strpos($identityEndpoint, '?') === false ? '?' : '&')
+                 . 'resource=' . rawurlencode($resource)
+                 . '&api-version=2019-08-01';
+            if ($clientId !== '') {
+                $url .= '&client_id=' . rawurlencode($clientId);
+            }
+            $headers = ['X-IDENTITY-HEADER: ' . $identityHeader];
+        } else {
+            // IMDS (VM / IaaS)
+            $url = 'http://169.254.169.254/metadata/identity/oauth2/token'
+                 . '?resource=' . rawurlencode($resource)
+                 . '&api-version=2018-02-01';
+            if ($clientId !== '') {
+                $url .= '&client_id=' . rawurlencode($clientId);
+            }
+            $headers = ['Metadata: true'];
+        }
+
+        [$status, $resp] = $this->httpRequest('GET', $url, null, $headers);
+
+        if ($status !== 200) {
+            throw new RuntimeException(
+                "Falha ao obter token via Managed Identity (HTTP {$status}): " . $this->extractError($resp)
+            );
+        }
+
+        $data = json_decode($resp, true);
+        if (!isset($data['access_token'])) {
+            throw new RuntimeException('Resposta de token (Managed Identity) invalida.');
+        }
+
+        return $this->tokenCache['__mi__'] = $data['access_token'];
     }
 
     /**
