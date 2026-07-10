@@ -1,0 +1,216 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Cliente da Azure Resource Manager / Cost Management API.
+ *
+ * Equivalente moderno ao Commons/AzureResourceManagerUtil.cs do projeto
+ * original. Usa o fluxo OAuth2 "client credentials" (service principal)
+ * e a Cost Management Query API, que substitui a antiga e ja descontinuada
+ * API Commerce/UsageAggregates + RateCard usada pelos WebJobs.
+ *
+ * Docs: https://learn.microsoft.com/rest/api/cost-management/query/usage
+ */
+class AzureClient
+{
+    private array $cfg;
+    /** Cache de tokens por tenant. */
+    private array $tokenCache = [];
+
+    public function __construct(array $azureConfig)
+    {
+        $this->cfg = $azureConfig;
+    }
+
+    /**
+     * Obtem um access token (client credentials) para o tenant informado.
+     * Faz cache em memoria durante a execucao.
+     */
+    public function getAccessToken(string $tenantId): string
+    {
+        if (isset($this->tokenCache[$tenantId])) {
+            return $this->tokenCache[$tenantId];
+        }
+
+        $url = rtrim($this->cfg['login_url'], '/') . "/{$tenantId}/oauth2/v2.0/token";
+        $body = http_build_query([
+            'grant_type'    => 'client_credentials',
+            'client_id'     => $this->cfg['client_id'],
+            'client_secret' => $this->cfg['client_secret'],
+            'scope'         => $this->cfg['scope'],
+        ]);
+
+        [$status, $resp] = $this->httpRequest('POST', $url, $body, [
+            'Content-Type: application/x-www-form-urlencoded',
+        ]);
+
+        if ($status !== 200) {
+            throw new RuntimeException(
+                "Falha ao obter token da Azure (HTTP {$status}): " . $this->extractError($resp)
+            );
+        }
+
+        $data = json_decode($resp, true);
+        if (!isset($data['access_token'])) {
+            throw new RuntimeException('Resposta de token invalida da Azure.');
+        }
+
+        return $this->tokenCache[$tenantId] = $data['access_token'];
+    }
+
+    /**
+     * Consulta os custos (ActualCost) de uma subscription num intervalo,
+     * agregados por dia + servico + regiao.
+     *
+     * Retorna um array de linhas normalizadas:
+     *   [ 'usage_date', 'service_name', 'resource_location',
+     *     'meter_category', 'cost', 'currency' ]
+     */
+    public function queryUsage(string $subscriptionId, string $tenantId, DateTimeImmutable $from, DateTimeImmutable $to): array
+    {
+        $token = $this->getAccessToken($tenantId);
+
+        $url = sprintf(
+            '%s/subscriptions/%s/providers/Microsoft.CostManagement/query?api-version=%s',
+            rtrim($this->cfg['management_url'], '/'),
+            $subscriptionId,
+            $this->cfg['api_version']
+        );
+
+        $payload = [
+            'type'      => 'ActualCost',
+            'timeframe' => 'Custom',
+            'timePeriod' => [
+                'from' => $from->format('Y-m-d\T00:00:00\Z'),
+                'to'   => $to->format('Y-m-d\T23:59:59\Z'),
+            ],
+            'dataset' => [
+                'granularity' => 'Daily',
+                'aggregation' => [
+                    'totalCost' => ['name' => 'Cost', 'function' => 'Sum'],
+                ],
+                'grouping' => [
+                    ['type' => 'Dimension', 'name' => 'ServiceName'],
+                    ['type' => 'Dimension', 'name' => 'ResourceLocation'],
+                    ['type' => 'Dimension', 'name' => 'MeterCategory'],
+                ],
+            ],
+        ];
+
+        $rows = [];
+        $requestUrl = $url;
+        $body = json_encode($payload);
+        $guard = 0;
+
+        // A API pagina via properties.nextLink.
+        do {
+            [$status, $resp] = $this->httpRequest('POST', $requestUrl, $body, [
+                'Authorization: Bearer ' . $token,
+                'Content-Type: application/json',
+            ]);
+
+            if ($status !== 200) {
+                throw new RuntimeException(
+                    "Erro na Cost Management API para {$subscriptionId} (HTTP {$status}): "
+                    . $this->extractError($resp)
+                );
+            }
+
+            $data = json_decode($resp, true);
+            $props = $data['properties'] ?? [];
+            $columns = $props['columns'] ?? [];
+            $dataRows = $props['rows'] ?? [];
+
+            $idx = $this->columnIndex($columns);
+            foreach ($dataRows as $r) {
+                $rows[] = $this->normalizeRow($r, $idx);
+            }
+
+            $requestUrl = $props['nextLink'] ?? null;
+            // Em paginas subsequentes o corpo ja nao e necessario.
+            $body = null;
+            $guard++;
+        } while ($requestUrl && $guard < 100);
+
+        return $rows;
+    }
+
+    /** Mapeia nomes de coluna -> indice, de forma tolerante a variacoes. */
+    private function columnIndex(array $columns): array
+    {
+        $idx = [];
+        foreach ($columns as $i => $col) {
+            $name = strtolower($col['name'] ?? '');
+            $idx[$name] = $i;
+        }
+        return $idx;
+    }
+
+    private function normalizeRow(array $row, array $idx): array
+    {
+        $get = function (string $key, $default = null) use ($row, $idx) {
+            return isset($idx[$key]) && array_key_exists($idx[$key], $row)
+                ? $row[$idx[$key]]
+                : $default;
+        };
+
+        // UsageDate vem como inteiro AAAAMMDD.
+        $rawDate = (string)$get('usagedate', '');
+        $date = strlen($rawDate) === 8
+            ? substr($rawDate, 0, 4) . '-' . substr($rawDate, 4, 2) . '-' . substr($rawDate, 6, 2)
+            : date('Y-m-d');
+
+        return [
+            'usage_date'        => $date,
+            'service_name'      => (string)($get('servicename') ?: 'Unknown'),
+            'resource_location' => (string)($get('resourcelocation') ?: 'Unknown'),
+            'meter_category'    => (string)($get('metercategory') ?: ''),
+            'cost'              => (float)($get('cost', 0)),
+            'currency'          => (string)($get('currency') ?: ($this->cfg['currency'] ?? 'USD')),
+        ];
+    }
+
+    /** Extrai mensagem de erro legivel de uma resposta JSON da Azure. */
+    private function extractError(string $resp): string
+    {
+        $data = json_decode($resp, true);
+        if (isset($data['error']['message'])) {
+            return $data['error']['message'];
+        }
+        if (isset($data['error_description'])) {
+            return $data['error_description'];
+        }
+        return substr($resp, 0, 500);
+    }
+
+    /**
+     * Executa uma requisicao HTTP via cURL.
+     * @return array{0:int,1:string} [statusCode, responseBody]
+     */
+    private function httpRequest(string $method, string $url, ?string $body, array $headers): array
+    {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_CUSTOMREQUEST  => $method,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER     => $headers,
+            CURLOPT_TIMEOUT        => 120,
+            CURLOPT_CONNECTTIMEOUT => 30,
+        ]);
+        if ($body !== null) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+        }
+
+        $resp = curl_exec($ch);
+        if ($resp === false) {
+            $err = curl_error($ch);
+            curl_close($ch);
+            throw new RuntimeException("Erro de rede ao chamar a Azure: {$err}");
+        }
+        $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        return [$status, (string)$resp];
+    }
+}

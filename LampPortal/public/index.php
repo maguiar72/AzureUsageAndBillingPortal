@@ -1,0 +1,94 @@
+<?php
+declare(strict_types=1);
+$config = require __DIR__ . '/../src/bootstrap.php';
+$siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_QUOTES);
+?>
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><?= $siteName ?></title>
+    <link rel="stylesheet" href="assets/style.css">
+    <!-- Chart.js (CDN). Para ambiente 100% offline, baixe para assets/ e ajuste o src. -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+</head>
+<body>
+<header class="topbar">
+    <div class="wrap">
+        <div class="brand">
+            <span class="logo">☁</span>
+            <div>
+                <h1><?= $siteName ?></h1>
+                <p class="subtitle">Relatorios publicos de uso e faturamento da Azure</p>
+            </div>
+        </div>
+        <div class="controls">
+            <select id="rangeSelect" aria-label="Periodo">
+                <option value="7">Ultimos 7 dias</option>
+                <option value="30" selected>Ultimos 30 dias</option>
+                <option value="60">Ultimos 60 dias</option>
+                <option value="90">Ultimos 90 dias</option>
+            </select>
+            <button id="refreshBtn" class="btn-refresh" type="button">
+                <span class="icon">⟳</span> <span class="label">Atualizar</span>
+            </button>
+        </div>
+    </div>
+</header>
+
+<main class="wrap">
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <section class="cards" id="cards">
+        <div class="card">
+            <span class="card-label">Custo total no periodo</span>
+            <span class="card-value" id="cardTotal">—</span>
+        </div>
+        <div class="card">
+            <span class="card-label">Servicos</span>
+            <span class="card-value" id="cardServices">—</span>
+        </div>
+        <div class="card">
+            <span class="card-label">Assinaturas</span>
+            <span class="card-value" id="cardSubs">—</span>
+        </div>
+        <div class="card">
+            <span class="card-label">Ultima atualizacao</span>
+            <span class="card-value small" id="cardLast">—</span>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>Custo diario</h2>
+        <div class="chart-box"><canvas id="chartTimeseries"></canvas></div>
+    </section>
+
+    <div class="grid-2">
+        <section class="panel">
+            <h2>Custo por servico</h2>
+            <div class="chart-box"><canvas id="chartService"></canvas></div>
+        </section>
+        <section class="panel">
+            <h2>Custo por regiao</h2>
+            <div class="chart-box"><canvas id="chartLocation"></canvas></div>
+        </section>
+    </div>
+
+    <section class="panel">
+        <h2>Custo por assinatura</h2>
+        <table class="table" id="tableSubs">
+            <thead><tr><th>Assinatura</th><th class="num">Custo</th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </section>
+</main>
+
+<footer class="footer wrap">
+    <p>Dados extraidos automaticamente a cada 12 horas via Azure Cost Management API.
+       Portal LAMP baseado no projeto Azure Usage &amp; Billing Insights.</p>
+</footer>
+
+<script src="assets/app.js" defer></script>
+</body>
+</html>

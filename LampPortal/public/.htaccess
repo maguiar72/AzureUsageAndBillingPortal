@@ -1,0 +1,20 @@
+# Apache - configuracoes da raiz publica.
+#
+# O DocumentRoot do site DEVE apontar para este diretorio (public/),
+# de modo que src/, config/ e runtime/ fiquem fora do alcance da web.
+
+Options -Indexes
+
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set Referrer-Policy "no-referrer-when-downgrade"
+</IfModule>
+
+# Bloqueia acesso a arquivos sensiveis, caso o DocumentRoot esteja mal
+# configurado apontando para a raiz do projeto.
+<FilesMatch "\.(php~|bak|inc|sql|log|lock)$">
+    Require all denied
+</FilesMatch>
+
+DirectoryIndex index.php

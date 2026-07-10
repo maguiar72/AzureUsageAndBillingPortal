@@ -1,0 +1,9 @@
+# Segredos e artefatos locais - NAO versionar
+config/config.php
+
+# Mantem a pasta runtime/ versionada, mas ignora seu conteudo (locks/logs)
+runtime/*
+!runtime/.gitkeep
+
+*.log
+*.lock
