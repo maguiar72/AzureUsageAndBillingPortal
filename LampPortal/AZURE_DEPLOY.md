@@ -146,27 +146,30 @@ export DB_HOST="${MYSQL}.mysql.database.azure.com"
 ```
 
 **Opção A — cliente `mysql` (recomendada; mais confiável no Cloud Shell).**
-O Cloud Shell já traz o cliente `mysql`:
+O Cloud Shell traz o cliente do **MariaDB**, que usa a flag `--ssl` (o cliente
+Oracle MySQL usaria `--ssl-mode=REQUIRED`; no Cloud Shell isso dá erro
+*"unknown variable 'ssl-mode'"*):
 
 ```bash
 # Cria as tabelas (schema do repositório)
 mysql -h "$DB_HOST" -u "$MYSQL_ADMIN" -p"$MYSQL_ADMIN_PASS" \
-  --ssl-mode=REQUIRED "$DB_NAME" < sql/schema.sql
+  --ssl "$DB_NAME" < sql/schema.sql
 
 # Cria o usuário da aplicação (host '%' pois a app conecta remotamente)
 mysql -h "$DB_HOST" -u "$MYSQL_ADMIN" -p"$MYSQL_ADMIN_PASS" \
-  --ssl-mode=REQUIRED "$DB_NAME" -e "
+  --ssl "$DB_NAME" -e "
 CREATE USER IF NOT EXISTS '${APP_DB_USER}'@'%' IDENTIFIED BY '${APP_DB_PASS}';
 GRANT SELECT, INSERT, UPDATE, DELETE ON ${DB_NAME}.* TO '${APP_DB_USER}'@'%';
 FLUSH PRIVILEGES;"
 
 # Verifica
 mysql -h "$DB_HOST" -u "$MYSQL_ADMIN" -p"$MYSQL_ADMIN_PASS" \
-  --ssl-mode=REQUIRED "$DB_NAME" -e "SHOW TABLES;"
+  --ssl "$DB_NAME" -e "SHOW TABLES;"
 ```
 
-> Use `-p"$MYSQL_ADMIN_PASS"` **sem espaço** após o `-p`. `--ssl-mode=REQUIRED`
-> atende à exigência de TLS do Azure MySQL.
+> Use `-p"$MYSQL_ADMIN_PASS"` **sem espaço** após o `-p`. A flag `--ssl` ativa
+> TLS (exigido pelo Azure MySQL). Se estiver usando o cliente Oracle MySQL em
+> vez do MariaDB, troque `--ssl` por `--ssl-mode=REQUIRED`.
 
 **Opção B — via Azure CLI** (exige a extensão `rdbms-connect`; sem ela o
 comando falha com *"'execute' is misspelled or not recognized"*):
