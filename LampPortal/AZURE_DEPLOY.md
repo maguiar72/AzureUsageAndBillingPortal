@@ -293,16 +293,18 @@ echo "Portal: https://${APP_URL}"
 
 ## 8. Container Apps Job (extração agendada a cada 12 h)
 
+> Mesmo padrão de 3 etapas do Passo 7 (a CLI tem o mesmo conflito ao juntar
+> `--registry-identity` com a identidade no `create`).
+
 ```bash
+# 8.1 Cria o job com imagem pública temporária + identidade + comando + env vars
 az containerapp job create \
   -g "$RG" -n "$JOB" \
   --environment "$ENVIRONMENT" \
   --trigger-type Schedule \
   --cron-expression "0 */12 * * *" \
-  --image "${ACR}.azurecr.io/${IMAGE}:${IMAGE_TAG}" \
+  --image "mcr.microsoft.com/k8se/quickstart:latest" \
   --mi-user-assigned "$IDENTITY_ID" \
-  --registry-server "${ACR}.azurecr.io" \
-  --registry-identity "$IDENTITY_ID" \
   --cpu 0.5 --memory 1.0Gi \
   --replica-timeout 1800 --replica-retry-limit 1 \
   --command "php" "/var/www/html/bin/extract.php" "cron" \
@@ -319,6 +321,17 @@ az containerapp job create \
      "AZURE_SUBSCRIPTION_IDS=${SUBSCRIPTION_ID}" \
      "AZURE_LOOKBACK_DAYS=60" \
      "APP_CURRENCY=USD"
+
+# 8.2 Aponta o registry para a Managed Identity
+az containerapp job registry set \
+  -g "$RG" -n "$JOB" \
+  --server "${ACR}.azurecr.io" \
+  --identity "$IDENTITY_ID"
+
+# 8.3 Troca para a SUA imagem
+az containerapp job update \
+  -g "$RG" -n "$JOB" \
+  --image "${ACR}.azurecr.io/${IMAGE}:${IMAGE_TAG}"
 ```
 
 - `"0 */12 * * *"` → roda às **00:00 e 12:00 UTC**. (Para 06:00/18:00 no
