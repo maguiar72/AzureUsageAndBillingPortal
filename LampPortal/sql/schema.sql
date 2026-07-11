@@ -43,7 +43,10 @@ CREATE TABLE IF NOT EXISTS `usage_records` (
   `updated_at`        DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP
                                     ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_record` (`subscription_id`,`usage_date`,`service_name`,`resource_location`,`meter_category`),
+  -- Indices de prefixo (100 chars) nas colunas de texto para caber no
+  -- limite de 3072 bytes do InnoDB com utf8mb4. Os valores da Azure sao
+  -- curtos, entao o prefixo garante a unicidade na pratica.
+  UNIQUE KEY `uq_record` (`subscription_id`,`usage_date`,`service_name`(100),`resource_location`(100),`meter_category`(100)),
   KEY `ix_date`    (`usage_date`),
   KEY `ix_service` (`service_name`),
   KEY `ix_sub`     (`subscription_id`)
