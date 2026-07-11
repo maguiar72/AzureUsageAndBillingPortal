@@ -96,6 +96,8 @@
     function loadBreakdown(days) {
         getJSON('api/breakdown.php?days=' + days).then(function (res) {
             var b = res.body || {};
+            drawBar('chartCategory',
+                pluck(b.by_category, 'category'), pluck(b.by_category, 'cost'), false);
             drawDoughnut('chartService',
                 pluck(b.by_service, 'service_name'), pluck(b.by_service, 'cost'));
             drawBar('chartRG',
@@ -253,12 +255,12 @@
         });
     }
 
-    function drawBar(id, labels, data) {
+    function drawBar(id, labels, data, drill) {
         if (charts[id]) charts[id].destroy();
         charts[id] = new Chart(ctx(id), {
             type: 'bar',
             data: { labels: labels, datasets: [{ label: 'Custo', data: data, backgroundColor: PALETTE[0] }] },
-            options: baseOptions(false, true)
+            options: baseOptions(false, drill !== false)
         });
     }
 
@@ -345,8 +347,14 @@
     }
 
     /* ---------- Init ---------- */
+    function downloadExport(fmt) {
+        window.location.href = 'api/export.php?format=' + fmt + '&days=' + currentDays;
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         $('#refreshBtn').addEventListener('click', doRefresh);
+        $('#exportHtml').addEventListener('click', function () { downloadExport('html'); });
+        $('#exportXlsx').addEventListener('click', function () { downloadExport('xlsx'); });
         $('#rangeSelect').addEventListener('change', function (e) {
             currentDays = parseInt(e.target.value, 10) || 30;
             loadAll();

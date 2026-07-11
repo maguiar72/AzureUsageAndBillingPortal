@@ -165,15 +165,20 @@ rodar o refresh várias vezes apenas atualiza os mesmos registros.
 
 ## Endpoints JSON públicos
 
-| Endpoint                    | Método | Descrição                                  |
-|-----------------------------|--------|--------------------------------------------|
-| `api/summary.php?days=30`   | GET    | Cartões-resumo (custo total, contagens)    |
-| `api/timeseries.php?days=30`| GET    | Série de custo diário                       |
-| `api/by_service.php?days=30`| GET    | Custo por serviço, região e assinatura      |
-| `api/status.php`            | GET    | Estado da extração atual/última             |
-| `api/refresh.php`           | POST   | Dispara nova extração (botão Atualizar)     |
+| Endpoint                     | Método | Descrição                                             |
+|------------------------------|--------|-------------------------------------------------------|
+| `api/summary.php?days=30`    | GET    | Cartões-resumo (custo total, do último dia, contagens)|
+| `api/timeseries.php?days=30` | GET    | Série de custo diário                                 |
+| `api/breakdown.php?days=30`  | GET    | Custo por área de negócio, serviço, resource group, tipo e assinatura |
+| `api/resources.php?days=30&q=`| GET   | Itens por recurso (VMs/itens), com busca `q`          |
+| `api/export.php?format=xlsx` | GET    | Exporta relatório em Excel (`.xlsx`) ou HTML (`format=html`) |
+| `api/status.php`             | GET    | Estado da extração atual/última                       |
+| `api/refresh.php`            | POST   | Dispara nova extração (botão Atualizar)               |
 
-O parâmetro `days` aceita 1–365 (padrão 30).
+O parâmetro `days` aceita 1–400 (padrão 30). A “área de negócio” traduz nomes
+técnicos de serviço (ex.: *Foundry Models* → *Inteligência Artificial*,
+*Microsoft Fabric* → *Power BI / Gestão de Dados*) via `src/ServiceLabels.php`,
+que é facilmente editável.
 
 ---
 

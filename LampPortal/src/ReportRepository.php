@@ -176,6 +176,35 @@ class ReportRepository
         return $stmt->fetchAll();
     }
 
+    /**
+     * Custo por AREA DE NEGOCIO (nomes amigaveis) - visao do gestor.
+     * Agrega todos os servicos e mapeia via ServiceLabels.
+     */
+    public function byCategory(int $days = 30): array
+    {
+        [$clause, $params] = $this->windowClause($days);
+        $rows = $this->db->query(
+            "SELECT service_name, SUM(cost) AS cost
+               FROM usage_records
+              WHERE 1=1 {$clause}
+              GROUP BY service_name",
+            $params
+        );
+
+        $agg = [];
+        foreach ($rows as $r) {
+            $cat = ServiceLabels::category((string)$r['service_name']);
+            $agg[$cat] = ($agg[$cat] ?? 0) + (float)$r['cost'];
+        }
+        arsort($agg);
+
+        $out = [];
+        foreach ($agg as $cat => $cost) {
+            $out[] = ['category' => $cat, 'cost' => round($cost, 2)];
+        }
+        return $out;
+    }
+
     /** Custo por tipo de recurso (ex.: virtualMachines, disks, etc.). */
     public function byResourceType(int $days = 30, int $limit = 15): array
     {

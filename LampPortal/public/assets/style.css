@@ -52,6 +52,15 @@ body {
 .btn-refresh:hover { background: var(--brand-dark); }
 .btn-refresh:active { transform: translateY(1px); }
 .btn-refresh:disabled { opacity: .65; cursor: not-allowed; }
+.btn-ghost {
+    padding: 9px 12px; border: 1px solid #33507f; border-radius: 8px;
+    background: #16264a; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.btn-ghost:hover { background: #1e3358; }
+.tag {
+    font-size: 11px; font-weight: 600; color: #0078d4; background: #e8f1fb;
+    border-radius: 999px; padding: 2px 8px; margin-left: 6px; vertical-align: middle;
+}
 .btn-refresh .icon { display: inline-block; font-size: 16px; }
 .btn-refresh.spinning .icon { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

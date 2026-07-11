@@ -32,6 +32,8 @@ $siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_
                 <option value="180">Ultimos 180 dias</option>
                 <option value="365">Ultimos 12 meses</option>
             </select>
+            <button id="exportHtml" class="btn-ghost" type="button" title="Exportar relatorio em HTML">⬇ HTML</button>
+            <button id="exportXlsx" class="btn-ghost" type="button" title="Exportar relatorio em Excel">⬇ Excel</button>
             <button id="refreshBtn" class="btn-refresh" type="button">
                 <span class="icon">⟳</span> <span class="label">Atualizar</span>
             </button>
@@ -73,6 +75,11 @@ $siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_
             <span class="card-label">Ultima atualizacao</span>
             <span class="card-value small" id="cardLast">—</span>
         </div>
+    </section>
+
+    <section class="panel">
+        <h2>Custo por area de negocio <span class="tag">visao do gestor</span></h2>
+        <div class="chart-box"><canvas id="chartCategory"></canvas></div>
     </section>
 
     <section class="panel">

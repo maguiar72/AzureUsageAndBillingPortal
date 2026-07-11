@@ -7,6 +7,7 @@ $repo = new ReportRepository($db);
 $days = param_days();
 
 json_out([
+    'by_category'       => $repo->byCategory($days),
     'by_service'        => $repo->byService($days),
     'by_resource_group' => $repo->byResourceGroup($days),
     'by_resource_type'  => $repo->byResourceType($days),
