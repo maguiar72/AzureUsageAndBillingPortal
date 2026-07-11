@@ -237,14 +237,19 @@ Isso cria também um workspace do Log Analytics para os logs.
 
 ## 7. Container App (portal web, público)
 
+> Feito em **3 etapas**: passar `--registry-identity` junto com
+> `--user-assigned` no mesmo `create` causa um conflito de ordem na CLI
+> (*"identity already assigned … does not exist"*). O padrão confiável é
+> criar com uma imagem pública, apontar o registry para a identidade e só
+> então trocar para a sua imagem.
+
 ```bash
+# 7.1 Cria o app com imagem pública temporária + identidade + env vars
 az containerapp create \
   -g "$RG" -n "$APP" \
   --environment "$ENVIRONMENT" \
-  --image "${ACR}.azurecr.io/${IMAGE}:${IMAGE_TAG}" \
+  --image "mcr.microsoft.com/k8se/quickstart:latest" \
   --user-assigned "$IDENTITY_ID" \
-  --registry-server "${ACR}.azurecr.io" \
-  --registry-identity "$IDENTITY_ID" \
   --target-port 80 --ingress external \
   --min-replicas 1 --max-replicas 2 \
   --cpu 0.5 --memory 1.0Gi \
@@ -264,7 +269,18 @@ az containerapp create \
      "APP_TIMEZONE=America/Sao_Paulo" \
      "APP_CURRENCY=USD"
 
-# URL pública do portal
+# 7.2 Aponta o registry para autenticar via a Managed Identity
+az containerapp registry set \
+  -g "$RG" -n "$APP" \
+  --server "${ACR}.azurecr.io" \
+  --identity "$IDENTITY_ID"
+
+# 7.3 Troca para a SUA imagem (o pull agora usa a identidade)
+az containerapp update \
+  -g "$RG" -n "$APP" \
+  --image "${ACR}.azurecr.io/${IMAGE}:${IMAGE_TAG}"
+
+# 7.4 URL pública do portal
 export APP_URL=$(az containerapp show -g "$RG" -n "$APP" \
   --query properties.configuration.ingress.fqdn -o tsv)
 echo "Portal: https://${APP_URL}"
