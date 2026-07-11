@@ -132,11 +132,15 @@ class AzureClient
 
     /**
      * Consulta os custos (ActualCost) de uma subscription num intervalo,
-     * agregados por dia + servico + regiao.
+     * detalhados por RECURSO x DIA.
+     *
+     * A Query API permite no maximo 2 agrupamentos; usamos ResourceId +
+     * ServiceName. Do ResourceId derivamos o resource group, o nome e o
+     * tipo do recurso.
      *
      * Retorna um array de linhas normalizadas:
-     *   [ 'usage_date', 'service_name', 'resource_location',
-     *     'meter_category', 'cost', 'currency' ]
+     *   [ 'usage_date', 'resource_id', 'resource_name', 'resource_group',
+     *     'resource_type', 'service_name', 'cost', 'currency' ]
      */
     public function queryUsage(string $subscriptionId, string $tenantId, DateTimeImmutable $from, DateTimeImmutable $to): array
     {
@@ -161,10 +165,10 @@ class AzureClient
                 'aggregation' => [
                     'totalCost' => ['name' => 'Cost', 'function' => 'Sum'],
                 ],
+                // Maximo 2 agrupamentos permitidos pela Query API.
                 'grouping' => [
+                    ['type' => 'Dimension', 'name' => 'ResourceId'],
                     ['type' => 'Dimension', 'name' => 'ServiceName'],
-                    ['type' => 'Dimension', 'name' => 'ResourceLocation'],
-                    ['type' => 'Dimension', 'name' => 'MeterCategory'],
                 ],
             ],
         ];
@@ -232,14 +236,78 @@ class AzureClient
             ? substr($rawDate, 0, 4) . '-' . substr($rawDate, 4, 2) . '-' . substr($rawDate, 6, 2)
             : date('Y-m-d');
 
+        $resourceId = (string)($get('resourceid') ?: '');
+        [$name, $group, $type] = $this->parseResourceId($resourceId);
+
         return [
-            'usage_date'        => $date,
-            'service_name'      => (string)($get('servicename') ?: 'Unknown'),
-            'resource_location' => (string)($get('resourcelocation') ?: 'Unknown'),
-            'meter_category'    => (string)($get('metercategory') ?: ''),
-            'cost'              => (float)($get('cost', 0)),
-            'currency'          => (string)($get('currency') ?: ($this->cfg['currency'] ?? 'USD')),
+            'usage_date'     => $date,
+            'resource_id'    => $resourceId,
+            'resource_name'  => $name,
+            'resource_group' => $group,
+            'resource_type'  => $type,
+            'service_name'   => (string)($get('servicename') ?: 'Unknown'),
+            'cost'           => (float)($get('cost', 0)),
+            'currency'       => (string)($get('currency') ?: ($this->cfg['currency'] ?? 'USD')),
         ];
+    }
+
+    /**
+     * Extrai (nome, resource group, tipo) de um ResourceId ARM, ex.:
+     *   /subscriptions/{s}/resourceGroups/{rg}/providers/{ns}/{tipo}/{nome}
+     * Tolerante a maiusculas/minusculas e a IDs vazios (custos sem recurso,
+     * como marketplace/reservas).
+     */
+    private function parseResourceId(string $rid): array
+    {
+        $name = '(sem recurso)';
+        $group = '(sem grupo)';
+        $type = '';
+
+        if ($rid !== '') {
+            if (preg_match('#/resourcegroups/([^/]+)#i', $rid, $m)) {
+                $group = $m[1];
+            }
+            if (preg_match('#/providers/([^/]+/[^/]+)#i', $rid, $m)) {
+                $type = $m[1];
+            }
+            $parts = array_values(array_filter(explode('/', $rid), 'strlen'));
+            if ($parts) {
+                $name = end($parts);
+            }
+        }
+
+        return [
+            mb_substr($name, 0, 255),
+            mb_substr($group, 0, 255),
+            mb_substr($type, 0, 255),
+        ];
+    }
+
+    /**
+     * Obtem o nome amigavel (displayName) de uma subscription via ARM.
+     * Requer permissao de leitura na subscription; em caso de falha
+     * (ex.: 403), retorna string vazia para o chamador usar um fallback.
+     */
+    public function getSubscriptionName(string $subscriptionId, string $tenantId): string
+    {
+        try {
+            $token = $this->getAccessToken($tenantId);
+            $url = sprintf(
+                '%s/subscriptions/%s?api-version=2020-01-01',
+                rtrim($this->cfg['management_url'], '/'),
+                $subscriptionId
+            );
+            [$status, $resp] = $this->httpRequest('GET', $url, null, [
+                'Authorization: Bearer ' . $token,
+            ]);
+            if ($status === 200) {
+                $data = json_decode($resp, true);
+                return (string)($data['displayName'] ?? '');
+            }
+        } catch (Throwable $e) {
+            // ignora - fallback no chamador
+        }
+        return '';
     }
 
     /** Extrai mensagem de erro legivel de uma resposta JSON da Azure. */

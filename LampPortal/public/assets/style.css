@@ -91,6 +91,18 @@ body {
 .table th.num, .table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .table tbody tr:hover { background: #f8fafc; }
 
+/* ---- Panel head + search ---- */
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.panel-head h2 { margin: 0; }
+.search {
+    padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px;
+    font-size: 14px; min-width: 260px; max-width: 100%;
+}
+.search:focus { outline: 2px solid var(--brand); border-color: var(--brand); }
+.table-scroll { overflow-x: auto; max-height: 520px; overflow-y: auto; }
+.muted { color: var(--muted); }
+.hint { color: var(--muted); font-size: 12.5px; margin: 10px 2px 0; }
+
 /* ---- Footer ---- */
 .footer { color: var(--muted); font-size: 13px; padding: 24px 20px 40px; }
 

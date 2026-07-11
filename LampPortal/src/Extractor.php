@@ -114,22 +114,27 @@ class Extractor
     {
         $defaultTenant = $this->config['azure']['tenant_id'];
         foreach ($this->config['azure']['subscriptions'] as $sub) {
+            $tenant = $sub['tenant_id'] ?? $defaultTenant;
+
+            // Nome amigavel: usa o do config; senao tenta o ARM; senao o id.
+            $displayName = $sub['display_name'] ?? '';
+            if ($displayName === '' || $displayName === $sub['id']) {
+                $armName = $this->azure->getSubscriptionName($sub['id'], $tenant);
+                $displayName = $armName !== '' ? $armName : $sub['id'];
+            }
+
             $this->db->execute(
                 'INSERT INTO subscriptions (subscription_id, display_name, tenant_id, is_active)
                  VALUES (?, ?, ?, 1)
                  ON DUPLICATE KEY UPDATE display_name = VALUES(display_name),
                                          tenant_id    = VALUES(tenant_id),
                                          is_active    = 1',
-                [
-                    $sub['id'],
-                    $sub['display_name'] ?? $sub['id'],
-                    $sub['tenant_id'] ?? $defaultTenant,
-                ]
+                [$sub['id'], $displayName, $tenant]
             );
         }
     }
 
-    /** Insere/atualiza os registros de custo (idempotente). */
+    /** Insere/atualiza os registros de custo por recurso/dia (idempotente). */
     private function upsertRows(string $subscriptionId, array $rows): int
     {
         if (!$rows) {
@@ -137,21 +142,40 @@ class Extractor
         }
 
         $sql = 'INSERT INTO usage_records
-                    (subscription_id, usage_date, service_name, resource_location,
-                     meter_category, cost, currency)
-                VALUES (:sub, :date, :service, :location, :category, :cost, :currency)
-                ON DUPLICATE KEY UPDATE cost = VALUES(cost), currency = VALUES(currency)';
+                    (record_hash, subscription_id, usage_date, resource_id,
+                     resource_name, resource_group, resource_type, service_name,
+                     cost, currency)
+                VALUES (:hash, :sub, :date, :rid, :rname, :rgroup, :rtype,
+                        :service, :cost, :currency)
+                ON DUPLICATE KEY UPDATE
+                    cost           = VALUES(cost),
+                    currency       = VALUES(currency),
+                    resource_name  = VALUES(resource_name),
+                    resource_group = VALUES(resource_group),
+                    resource_type  = VALUES(resource_type),
+                    service_name   = VALUES(service_name)';
 
         $stmt = $this->db->pdo()->prepare($sql);
         $count = 0;
         foreach ($rows as $r) {
+            // Chave natural -> hash (evita indice unico gigante do ResourceId).
+            $hash = hash('sha256', implode('|', [
+                $subscriptionId,
+                $r['usage_date'],
+                $r['resource_id'],
+                $r['service_name'],
+            ]));
+
             $stmt->execute([
-                ':sub'      => $subscriptionId,
-                ':date'     => $r['usage_date'],
-                ':service'  => mb_substr($r['service_name'], 0, 255),
-                ':location' => mb_substr($r['resource_location'], 0, 255),
-                ':category' => mb_substr($r['meter_category'], 0, 255),
-                ':cost'     => $r['cost'],
+                ':hash'    => $hash,
+                ':sub'     => $subscriptionId,
+                ':date'    => $r['usage_date'],
+                ':rid'     => mb_substr($r['resource_id'], 0, 600),
+                ':rname'   => mb_substr($r['resource_name'], 0, 255),
+                ':rgroup'  => mb_substr($r['resource_group'], 0, 255),
+                ':rtype'   => mb_substr($r['resource_type'], 0, 255),
+                ':service' => mb_substr($r['service_name'], 0, 255),
+                ':cost'    => $r['cost'],
                 ':currency' => $r['currency'],
             ]);
             $count++;

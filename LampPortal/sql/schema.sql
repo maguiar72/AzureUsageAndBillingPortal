@@ -6,7 +6,8 @@
 --    mysql -u root -p < sql/schema.sql
 --
 --  Cria o banco `azure_portal` e as tabelas necessarias para armazenar
---  os dados de custo/uso extraidos da Azure Cost Management API.
+--  os dados de custo/uso extraidos da Azure Cost Management API, com
+--  detalhe por recurso (resource), grupo de recursos e servico, por dia.
 -- =====================================================================
 
 CREATE DATABASE IF NOT EXISTS `azure_portal`
@@ -28,32 +29,38 @@ CREATE TABLE IF NOT EXISTS `subscriptions` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
---  Registros de custo/uso agregados por dia / servico / regiao
---  A chave unica evita duplicidade ao re-extrair a mesma janela.
+--  Registros de custo por RECURSO x DIA.
+--
+--  Granularidade: (assinatura, dia, recurso, servico). Como o ResourceId
+--  pode ser longo, a unicidade e garantida por um hash SHA-256 da chave
+--  natural (record_hash), evitando o limite de 3072 bytes de indice.
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `usage_records` (
-  `id`                BIGINT        NOT NULL AUTO_INCREMENT,
-  `subscription_id`   CHAR(36)      NOT NULL,
-  `usage_date`        DATE          NOT NULL,
-  `service_name`      VARCHAR(255)  NOT NULL DEFAULT 'Unknown',
-  `resource_location` VARCHAR(255)  NOT NULL DEFAULT 'Unknown',
-  `meter_category`    VARCHAR(255)  NOT NULL DEFAULT '',
-  `cost`              DECIMAL(20,6) NOT NULL DEFAULT 0,
-  `currency`          VARCHAR(10)   NOT NULL DEFAULT 'USD',
-  `updated_at`        DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP
-                                    ON UPDATE CURRENT_TIMESTAMP,
+  `id`               BIGINT        NOT NULL AUTO_INCREMENT,
+  `record_hash`      CHAR(64)      NOT NULL,
+  `subscription_id`  CHAR(36)      NOT NULL,
+  `usage_date`       DATE          NOT NULL,
+  `resource_id`      VARCHAR(600)  NOT NULL DEFAULT '',
+  `resource_name`    VARCHAR(255)  NOT NULL DEFAULT '(sem recurso)',
+  `resource_group`   VARCHAR(255)  NOT NULL DEFAULT '(sem grupo)',
+  `resource_type`    VARCHAR(255)  NOT NULL DEFAULT '',
+  `service_name`     VARCHAR(255)  NOT NULL DEFAULT 'Unknown',
+  `cost`             DECIMAL(20,6) NOT NULL DEFAULT 0,
+  `currency`         VARCHAR(10)   NOT NULL DEFAULT 'USD',
+  `updated_at`       DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP
+                                   ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  -- Indices de prefixo (100 chars) nas colunas de texto para caber no
-  -- limite de 3072 bytes do InnoDB com utf8mb4. Os valores da Azure sao
-  -- curtos, entao o prefixo garante a unicidade na pratica.
-  UNIQUE KEY `uq_record` (`subscription_id`,`usage_date`,`service_name`(100),`resource_location`(100),`meter_category`(100)),
+  UNIQUE KEY `uq_hash` (`record_hash`),
   KEY `ix_date`    (`usage_date`),
+  KEY `ix_rg`      (`resource_group`),
   KEY `ix_service` (`service_name`),
-  KEY `ix_sub`     (`subscription_id`)
+  KEY `ix_sub`     (`subscription_id`),
+  KEY `ix_resname` (`resource_name`),
+  KEY `ix_restype` (`resource_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
---  Historico das extracoes (para auditoria e para o painel publico)
+--  Historico das extracoes (auditoria e painel publico)
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `extraction_log` (
   `id`             BIGINT       NOT NULL AUTO_INCREMENT,

@@ -10,7 +10,6 @@ $siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $siteName ?></title>
     <link rel="stylesheet" href="assets/style.css">
-    <!-- Chart.js (CDN). Para ambiente 100% offline, baixe para assets/ e ajuste o src. -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
 </head>
 <body>
@@ -50,6 +49,14 @@ $siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_
             <span class="card-value" id="cardServices">—</span>
         </div>
         <div class="card">
+            <span class="card-label">Resource groups</span>
+            <span class="card-value" id="cardRGs">—</span>
+        </div>
+        <div class="card">
+            <span class="card-label">Recursos</span>
+            <span class="card-value" id="cardResources">—</span>
+        </div>
+        <div class="card">
             <span class="card-label">Assinaturas</span>
             <span class="card-value" id="cardSubs">—</span>
         </div>
@@ -60,7 +67,7 @@ $siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_
     </section>
 
     <section class="panel">
-        <h2>Custo diario</h2>
+        <h2>Custo por dia</h2>
         <div class="chart-box"><canvas id="chartTimeseries"></canvas></div>
     </section>
 
@@ -70,22 +77,52 @@ $siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_
             <div class="chart-box"><canvas id="chartService"></canvas></div>
         </section>
         <section class="panel">
-            <h2>Custo por regiao</h2>
-            <div class="chart-box"><canvas id="chartLocation"></canvas></div>
+            <h2>Custo por resource group</h2>
+            <div class="chart-box"><canvas id="chartRG"></canvas></div>
+        </section>
+    </div>
+
+    <div class="grid-2">
+        <section class="panel">
+            <h2>Custo por tipo de recurso</h2>
+            <div class="chart-box"><canvas id="chartType"></canvas></div>
+        </section>
+        <section class="panel">
+            <h2>Custo por assinatura</h2>
+            <table class="table" id="tableSubs">
+                <thead><tr><th>Assinatura</th><th class="num">Custo</th></tr></thead>
+                <tbody></tbody>
+            </table>
         </section>
     </div>
 
     <section class="panel">
-        <h2>Custo por assinatura</h2>
-        <table class="table" id="tableSubs">
-            <thead><tr><th>Assinatura</th><th class="num">Custo</th></tr></thead>
-            <tbody></tbody>
-        </table>
+        <div class="panel-head">
+            <h2>Itens consumidos (por recurso)</h2>
+            <input type="search" id="resSearch" class="search"
+                   placeholder="Filtrar por recurso, grupo, tipo ou servico...">
+        </div>
+        <div class="table-scroll">
+            <table class="table" id="tableResources">
+                <thead>
+                    <tr>
+                        <th>Recurso</th>
+                        <th>Resource group</th>
+                        <th>Tipo</th>
+                        <th>Servico</th>
+                        <th class="num">Custo</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <p class="hint" id="resHint"></p>
     </section>
 </main>
 
 <footer class="footer wrap">
-    <p>Dados extraidos automaticamente a cada 12 horas via Azure Cost Management API.
+    <p>Dados extraidos automaticamente a cada 12 horas via Azure Cost Management API
+       (detalhe por recurso, dia e resource group).
        Portal LAMP baseado no projeto Azure Usage &amp; Billing Insights.</p>
 </footer>
 
