@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 /**
  * Consultas de leitura para os relatorios publicos.
+ *
+ * Todas aceitam um filtro opcional de assinatura ($sub): quando informado,
+ * os numeros refletem apenas aquela assinatura (usado ao clicar numa linha
+ * de "Custo por assinatura" no painel).
  */
 class ReportRepository
 {
@@ -14,27 +18,33 @@ class ReportRepository
         $this->db = $db;
     }
 
-    /** Janela de dias como filtro reutilizavel. */
-    private function windowClause(int $days): array
+    /** Monta a clausula de filtro (janela de dias + assinatura opcional). */
+    private function filters(int $days, string $sub = ''): array
     {
-        return ['AND usage_date >= (CURDATE() - INTERVAL :days DAY)', [':days' => $days]];
+        $clause = 'AND usage_date >= (CURDATE() - INTERVAL :days DAY)';
+        $params = [':days' => $days];
+        if ($sub !== '') {
+            $clause .= ' AND subscription_id = :sub';
+            $params[':sub'] = $sub;
+        }
+        return [$clause, $params];
     }
 
-    /** Executa um SELECT agregado com bind de :days e :limit como inteiros. */
+    /** Executa SELECT agregado; :sub como string, demais (:days/:limit) inteiros. */
     private function topQuery(string $sql, array $params): array
     {
         $stmt = $this->db->pdo()->prepare($sql);
         foreach ($params as $k => $v) {
-            $stmt->bindValue($k, $v, PDO::PARAM_INT);
+            $stmt->bindValue($k, $v, $k === ':sub' ? PDO::PARAM_STR : PDO::PARAM_INT);
         }
         $stmt->execute();
         return $stmt->fetchAll();
     }
 
     /** Cartoes de resumo. */
-    public function summary(int $days = 30): array
+    public function summary(int $days = 30, string $sub = ''): array
     {
-        [$clause, $params] = $this->windowClause($days);
+        [$clause, $params] = $this->filters($days, $sub);
 
         $totals = $this->db->queryOne(
             "SELECT COALESCE(SUM(cost),0) AS total_cost,
@@ -55,17 +65,21 @@ class ReportRepository
               ORDER BY id DESC LIMIT 1"
         );
 
-        // Custo do dia mais recente com dados (independente da janela).
+        // Custo do dia mais recente com dados (respeitando o filtro de assinatura).
+        $subClause = $sub !== '' ? 'WHERE subscription_id = :sub' : '';
         $lastDay = $this->db->queryOne(
             "SELECT usage_date, ROUND(SUM(cost),2) AS cost
                FROM usage_records
+               {$subClause}
               GROUP BY usage_date
               ORDER BY usage_date DESC
-              LIMIT 1"
+              LIMIT 1",
+            $sub !== '' ? [':sub' => $sub] : []
         );
 
         return [
             'window_days'    => $days,
+            'subscription'   => $sub,
             'total_cost'     => (float)($totals['total_cost'] ?? 0),
             'currency'       => $totals['currency'] ?? 'USD',
             'service_count'  => (int)($totals['service_count'] ?? 0),
@@ -79,9 +93,9 @@ class ReportRepository
     }
 
     /** Serie temporal de custo diario (grafico de linha). */
-    public function timeseries(int $days = 30): array
+    public function timeseries(int $days = 30, string $sub = ''): array
     {
-        [$clause, $params] = $this->windowClause($days);
+        [$clause, $params] = $this->filters($days, $sub);
         return $this->db->query(
             "SELECT usage_date, ROUND(SUM(cost),2) AS cost
                FROM usage_records
@@ -93,9 +107,9 @@ class ReportRepository
     }
 
     /** Custo por servico (top N). */
-    public function byService(int $days = 30, int $limit = 12): array
+    public function byService(int $days = 30, int $limit = 12, string $sub = ''): array
     {
-        [$clause, $params] = $this->windowClause($days);
+        [$clause, $params] = $this->filters($days, $sub);
         $params[':limit'] = $limit;
         return $this->topQuery(
             "SELECT service_name, ROUND(SUM(cost),2) AS cost
@@ -109,9 +123,9 @@ class ReportRepository
     }
 
     /** Custo por resource group (top N). */
-    public function byResourceGroup(int $days = 30, int $limit = 15): array
+    public function byResourceGroup(int $days = 30, int $limit = 15, string $sub = ''): array
     {
-        [$clause, $params] = $this->windowClause($days);
+        [$clause, $params] = $this->filters($days, $sub);
         $params[':limit'] = $limit;
         return $this->topQuery(
             "SELECT resource_group, ROUND(SUM(cost),2) AS cost
@@ -124,10 +138,10 @@ class ReportRepository
         );
     }
 
-    /** Custo por assinatura. */
+    /** Custo por assinatura (sempre lista TODAS, para permitir a selecao). */
     public function bySubscription(int $days = 30): array
     {
-        [$clause, $params] = $this->windowClause($days);
+        [$clause, $params] = $this->filters($days);
         return $this->db->query(
             "SELECT u.subscription_id,
                     COALESCE(s.display_name, u.subscription_id) AS display_name,
@@ -143,11 +157,11 @@ class ReportRepository
 
     /**
      * Custo por recurso (VMs e todos os itens consumidos), com filtro
-     * opcional de busca por nome/grupo/tipo e paginacao simples (top N).
+     * opcional de busca e de assinatura, e paginacao simples (top N).
      */
-    public function byResource(int $days = 30, int $limit = 100, string $search = ''): array
+    public function byResource(int $days = 30, int $limit = 100, string $search = '', string $sub = ''): array
     {
-        [$clause, $params] = $this->windowClause($days);
+        [$clause, $params] = $this->filters($days, $sub);
 
         // Um unico :q (prepares nativos nao permitem reusar o placeholder).
         $searchSql = '';
@@ -168,6 +182,9 @@ class ReportRepository
 
         $stmt = $this->db->pdo()->prepare($sql);
         $stmt->bindValue(':days', $params[':days'], PDO::PARAM_INT);
+        if (isset($params[':sub'])) {
+            $stmt->bindValue(':sub', $params[':sub'], PDO::PARAM_STR);
+        }
         if ($search !== '') {
             $stmt->bindValue(':q', '%' . $search . '%', PDO::PARAM_STR);
         }
@@ -180,9 +197,9 @@ class ReportRepository
      * Custo por AREA DE NEGOCIO (nomes amigaveis) - visao do gestor.
      * Agrega todos os servicos e mapeia via ServiceLabels.
      */
-    public function byCategory(int $days = 30): array
+    public function byCategory(int $days = 30, string $sub = ''): array
     {
-        [$clause, $params] = $this->windowClause($days);
+        [$clause, $params] = $this->filters($days, $sub);
         $rows = $this->db->query(
             "SELECT service_name, SUM(cost) AS cost
                FROM usage_records
@@ -206,9 +223,9 @@ class ReportRepository
     }
 
     /** Custo por tipo de recurso (ex.: virtualMachines, disks, etc.). */
-    public function byResourceType(int $days = 30, int $limit = 15): array
+    public function byResourceType(int $days = 30, int $limit = 15, string $sub = ''): array
     {
-        [$clause, $params] = $this->windowClause($days);
+        [$clause, $params] = $this->filters($days, $sub);
         $params[':limit'] = $limit;
         return $this->topQuery(
             "SELECT resource_type, ROUND(SUM(cost),2) AS cost

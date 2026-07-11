@@ -24,16 +24,18 @@ $repo   = new ReportRepository($db);
 $days   = filter_input(INPUT_GET, 'days', FILTER_VALIDATE_INT) ?: 30;
 $days   = max(1, min(400, $days));
 $format = strtolower((string)(filter_input(INPUT_GET, 'format') ?? 'html'));
+$subRaw = (string)(filter_input(INPUT_GET, 'sub') ?? '');
+$sub    = preg_match('/^[0-9a-fA-F-]{36}$/', $subRaw) ? $subRaw : '';
 
 // ---- Coleta dos dados (limites generosos para exportacao) ----
-$summary   = $repo->summary($days);
-$byCat     = $repo->byCategory($days);
-$byService = $repo->byService($days, 2000);
-$byRG      = $repo->byResourceGroup($days, 2000);
-$byType    = $repo->byResourceType($days, 2000);
+$summary   = $repo->summary($days, $sub);
+$byCat     = $repo->byCategory($days, $sub);
+$byService = $repo->byService($days, 2000, $sub);
+$byRG      = $repo->byResourceGroup($days, 2000, $sub);
+$byType    = $repo->byResourceType($days, 2000, $sub);
 $bySub     = $repo->bySubscription($days);
-$series    = $repo->timeseries($days);
-$resources = $repo->byResource($days, 5000, '');
+$series    = $repo->timeseries($days, $sub);
+$resources = $repo->byResource($days, 5000, '', $sub);
 
 $currency = $summary['currency'] ?? 'USD';
 $siteName = $config['app']['site_name'] ?? 'Portal Azure';

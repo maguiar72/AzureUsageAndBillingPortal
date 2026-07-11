@@ -52,6 +52,7 @@ $assetVer = static function (string $rel): string {
 <main class="wrap">
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <div id="extractionWarn" class="warn" role="alert" hidden></div>
+    <div id="subFilter" class="subfilter" role="status" hidden></div>
 
     <section class="cards" id="cards">
         <div class="card">
@@ -112,7 +113,7 @@ $assetVer = static function (string $rel): string {
             <div class="chart-box"><canvas id="chartType"></canvas></div>
         </section>
         <section class="panel">
-            <h2>Custo por assinatura</h2>
+            <h2>Custo por assinatura <span class="tag">clique para filtrar</span></h2>
             <table class="table" id="tableSubs">
                 <thead><tr><th>Assinatura</th><th class="num">Custo</th></tr></thead>
                 <tbody></tbody>

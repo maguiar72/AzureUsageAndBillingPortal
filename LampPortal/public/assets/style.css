@@ -83,6 +83,19 @@ body {
 }
 .warn[hidden] { display: none; }
 
+/* ---- Barra do filtro de assinatura ---- */
+.subfilter {
+    margin: 18px 0 0; padding: 10px 14px; border-radius: 8px; font-size: 13.5px;
+    background: #e8f1fb; color: #0f172a; border: 1px solid #bfdbfe;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.subfilter[hidden] { display: none; }
+.chip-clear {
+    border: 0; background: var(--brand); color: #fff; border-radius: 999px;
+    padding: 4px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.chip-clear:hover { background: var(--brand-dark); }
+
 /* ---- Cards ---- */
 .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 22px 0; }
 .card {
@@ -108,6 +121,9 @@ body {
 .table th, .table td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; }
 .table th.num, .table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .table tbody tr:hover { background: #f8fafc; }
+.table tr.clickable { cursor: pointer; }
+.table tr.selected { background: #e8f1fb; }
+.table tr.selected td:first-child { box-shadow: inset 3px 0 0 var(--brand); font-weight: 600; }
 .table th.sortable { cursor: pointer; user-select: none; white-space: nowrap; color: var(--muted); }
 .table th.sortable:hover { color: var(--brand); }
 .table th.sortable.sorted { color: var(--brand); }

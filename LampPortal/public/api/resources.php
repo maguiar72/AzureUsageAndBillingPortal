@@ -19,5 +19,5 @@ json_out([
     'days'      => $days,
     'limit'     => $limit,
     'q'         => $search,
-    'resources' => $repo->byResource($days, $limit, $search),
+    'resources' => $repo->byResource($days, $limit, $search, param_sub()),
 ]);
