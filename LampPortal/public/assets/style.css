@@ -66,6 +66,14 @@ body {
 .toast.err { border-left: 4px solid #ef4444; }
 .toast.info { border-left: 4px solid var(--brand); }
 
+/* ---- Warning banner (extracao com erro) ---- */
+.warn {
+    margin: 18px 0 0; padding: 12px 16px; border-radius: 8px; font-size: 13.5px;
+    background: #fef2f2; color: #991b1b; border: 1px solid #fecaca;
+    box-shadow: var(--shadow); word-break: break-word;
+}
+.warn[hidden] { display: none; }
+
 /* ---- Cards ---- */
 .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 22px 0; }
 .card {
@@ -91,9 +99,13 @@ body {
 .table th, .table td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; }
 .table th.num, .table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .table tbody tr:hover { background: #f8fafc; }
-.table th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+.table th.sortable { cursor: pointer; user-select: none; white-space: nowrap; color: var(--muted); }
 .table th.sortable:hover { color: var(--brand); }
+.table th.sortable.sorted { color: var(--brand); }
 .table thead th { position: sticky; top: 0; background: var(--card); z-index: 1; }
+
+/* Dica de coluna / drill-down */
+.col-hint { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
 
 /* ---- Panel head + search ---- */
 .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }

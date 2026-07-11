@@ -67,9 +67,20 @@
             $('#cardResources').textContent = num(s.resource_count);
             $('#cardSubs').textContent = num(s.sub_count);
             var last = s.last_extraction;
-            $('#cardLast').textContent = last && last.finished_at
+            var cardLast = $('#cardLast');
+            cardLast.textContent = last && last.finished_at
                 ? formatDateTime(last.finished_at) + ' (' + last.status + ')'
                 : 'sem dados ainda';
+            cardLast.title = last && last.message ? last.message : '';
+
+            // Aviso persistente quando a ultima extracao falhou (mostra o motivo).
+            var warn = $('#extractionWarn');
+            if (last && last.status === 'error') {
+                warn.textContent = '⚠ Ultima extracao com erro: ' + (last.message || 'motivo desconhecido');
+                warn.hidden = false;
+            } else {
+                warn.hidden = true;
+            }
         }).catch(function () { toast('Nao foi possivel carregar o resumo.', 'err'); });
     }
 
@@ -185,9 +196,31 @@
         RES_COLS.forEach(function (c) {
             var th = document.querySelector('#tableResources th[data-key="' + c.key + '"]');
             if (!th) return;
-            var arrow = (resSort.key === c.key) ? (resSort.dir === 'asc' ? ' ▲' : ' ▼') : '';
+            // Coluna ativa: ▲/▼. Demais: ⇅ (indica que da para ordenar).
+            var arrow = (resSort.key === c.key)
+                ? (resSort.dir === 'asc' ? ' ▲' : ' ▼')
+                : ' ⇅';
             th.textContent = c.label + arrow;
+            th.classList.toggle('sorted', resSort.key === c.key);
         });
+    }
+
+    /* ---------- Drill-down: clicar num grafico filtra a tabela ---------- */
+    function drillTo(term) {
+        if (!term) return;
+        var box = $('#resSearch');
+        box.value = term;
+        loadResources();
+        toast('Filtrando itens por: ' + term, 'info');
+        var panel = document.getElementById('tableResources');
+        if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function chartClick(chart, elements) {
+        if (elements && elements.length) {
+            var label = chart.data.labels[elements[0].index];
+            drillTo(label);
+        }
     }
 
     function td(text, cls) {
@@ -225,7 +258,7 @@
         charts[id] = new Chart(ctx(id), {
             type: 'bar',
             data: { labels: labels, datasets: [{ label: 'Custo', data: data, backgroundColor: PALETTE[0] }] },
-            options: baseOptions(false)
+            options: baseOptions(false, true)
         });
     }
 
@@ -234,13 +267,13 @@
         charts[id] = new Chart(ctx(id), {
             type: 'doughnut',
             data: { labels: labels, datasets: [{ data: data, backgroundColor: PALETTE }] },
-            options: baseOptions(true)
+            options: baseOptions(true, true)
         });
     }
 
-    function baseOptions(isPie) {
+    function baseOptions(isPie, drill) {
         var money = function (v) { return fmtMoney(v); };
-        return {
+        var opts = {
             responsive: true, maintainAspectRatio: false,
             plugins: {
                 legend: { display: isPie, position: 'right', labels: { boxWidth: 12, font: { size: 11 } } },
@@ -251,6 +284,14 @@
             },
             scales: isPie ? {} : { y: { beginAtZero: true } }
         };
+        if (drill) {
+            // Clique numa fatia/barra -> filtra a tabela de itens.
+            opts.onClick = function (evt, elements, chart) { chartClick(chart, elements); };
+            opts.onHover = function (evt, elements) {
+                evt.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+            };
+        }
+        return opts;
     }
 
     /* ---------- Refresh ---------- */

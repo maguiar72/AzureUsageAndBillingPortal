@@ -41,6 +41,7 @@ $siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_
 
 <main class="wrap">
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="extractionWarn" class="warn" role="alert" hidden></div>
 
     <section class="cards" id="cards">
         <div class="card">
@@ -106,7 +107,11 @@ $siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_
 
     <section class="panel">
         <div class="panel-head">
-            <h2>Itens consumidos (por recurso)</h2>
+            <div>
+                <h2>Itens consumidos (por recurso)</h2>
+                <span class="col-hint">↕ Clique nos cabecalhos para ordenar &middot;
+                    clique numa fatia de &ldquo;Custo por servico/grupo/tipo&rdquo; para filtrar aqui</span>
+            </div>
             <input type="search" id="resSearch" class="search"
                    placeholder="Filtrar por recurso, grupo, tipo ou servico...">
         </div>
