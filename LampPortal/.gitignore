@@ -7,3 +7,7 @@ runtime/*
 
 *.log
 *.lock
+
+# bin/ aqui e codigo-fonte (bin/extract.php), nao artefato de build.
+# Sobrescreve o padrao [Bb]in/ do .gitignore da raiz (projeto .NET original).
+!bin/
