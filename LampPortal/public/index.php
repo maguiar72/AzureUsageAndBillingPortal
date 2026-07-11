@@ -2,6 +2,14 @@
 declare(strict_types=1);
 $config = require __DIR__ . '/../src/bootstrap.php';
 $siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_QUOTES);
+
+// Cache-busting: o ?v muda quando o arquivo e reconstruido (novo deploy),
+// forcando o navegador a baixar a versao nova dos assets.
+$assetVer = static function (string $rel): string {
+    $path = __DIR__ . '/' . $rel;
+    $v = is_file($path) ? (string)filemtime($path) : '1';
+    return $rel . '?v=' . $v;
+};
 ?>
 <!DOCTYPE html>
 <html lang="pt-br">
@@ -9,7 +17,7 @@ $siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $siteName ?></title>
-    <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="<?= htmlspecialchars($assetVer('assets/style.css'), ENT_QUOTES) ?>">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
 </head>
 <body>
@@ -146,6 +154,6 @@ $siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_
        Portal LAMP baseado no projeto Azure Usage &amp; Billing Insights.</p>
 </footer>
 
-<script src="assets/app.js" defer></script>
+<script src="<?= htmlspecialchars($assetVer('assets/app.js'), ENT_QUOTES) ?>" defer></script>
 </body>
 </html>
