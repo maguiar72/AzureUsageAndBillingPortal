@@ -143,13 +143,41 @@ az mysql flexible-server db create -g "$RG" -s "$MYSQL" -d "$DB_NAME"
 
 ```bash
 export DB_HOST="${MYSQL}.mysql.database.azure.com"
+```
 
-# Cria as tabelas (arquivo do repositório)
+**Opção A — cliente `mysql` (recomendada; mais confiável no Cloud Shell).**
+O Cloud Shell já traz o cliente `mysql`:
+
+```bash
+# Cria as tabelas (schema do repositório)
+mysql -h "$DB_HOST" -u "$MYSQL_ADMIN" -p"$MYSQL_ADMIN_PASS" \
+  --ssl-mode=REQUIRED "$DB_NAME" < sql/schema.sql
+
+# Cria o usuário da aplicação (host '%' pois a app conecta remotamente)
+mysql -h "$DB_HOST" -u "$MYSQL_ADMIN" -p"$MYSQL_ADMIN_PASS" \
+  --ssl-mode=REQUIRED "$DB_NAME" -e "
+CREATE USER IF NOT EXISTS '${APP_DB_USER}'@'%' IDENTIFIED BY '${APP_DB_PASS}';
+GRANT SELECT, INSERT, UPDATE, DELETE ON ${DB_NAME}.* TO '${APP_DB_USER}'@'%';
+FLUSH PRIVILEGES;"
+
+# Verifica
+mysql -h "$DB_HOST" -u "$MYSQL_ADMIN" -p"$MYSQL_ADMIN_PASS" \
+  --ssl-mode=REQUIRED "$DB_NAME" -e "SHOW TABLES;"
+```
+
+> Use `-p"$MYSQL_ADMIN_PASS"` **sem espaço** após o `-p`. `--ssl-mode=REQUIRED`
+> atende à exigência de TLS do Azure MySQL.
+
+**Opção B — via Azure CLI** (exige a extensão `rdbms-connect`; sem ela o
+comando falha com *"'execute' is misspelled or not recognized"*):
+
+```bash
+az extension add --name rdbms-connect --upgrade   # obrigatório para 'execute'
+
 az mysql flexible-server execute \
   -n "$MYSQL" -u "$MYSQL_ADMIN" -p "$MYSQL_ADMIN_PASS" -d "$DB_NAME" \
   --file-path sql/schema.sql
 
-# Cria o usuário da aplicação (host '%' pois a app conecta remotamente)
 az mysql flexible-server execute \
   -n "$MYSQL" -u "$MYSQL_ADMIN" -p "$MYSQL_ADMIN_PASS" -d "$DB_NAME" \
   -q "CREATE USER IF NOT EXISTS '${APP_DB_USER}'@'%' IDENTIFIED BY '${APP_DB_PASS}';
