@@ -381,15 +381,51 @@ az containerapp job update -g "$RG" -n "$JOB" \
 ## 11. (Opcional) Domínio próprio + HTTPS
 
 O ingress já entrega HTTPS no domínio `*.azurecontainerapps.io`. Para um
-domínio próprio com certificado gerenciado grátis:
+domínio próprio (ex.: `custos-azure.trf3.jus.br`) com **certificado
+gerenciado gratuito** (auto-renovável), são **2 registros DNS** + **2
+comandos**. Não é preciso reconstruir a imagem.
 
 ```bash
-# 1) Crie um CNAME no seu DNS apontando portal.seudominio.com -> $APP_URL
-# 2) Vincule o domínio e emita o certificado gerenciado:
-az containerapp hostname add     -g "$RG" -n "$APP" --hostname portal.seudominio.com
-az containerapp hostname bind    -g "$RG" -n "$APP" --hostname portal.seudominio.com \
-  --environment "$ENVIRONMENT" --validation-method CNAME
+export CUSTOM_DOMAIN="custos-azure.trf3.jus.br"
+
+# (1) Alvo do CNAME (domínio gerado do app) e código de verificação
+az containerapp show -g "$RG" -n "$APP" --query properties.configuration.ingress.fqdn -o tsv
+az containerapp show -g "$RG" -n "$APP" --query properties.customDomainVerificationId -o tsv
 ```
+
+**(2) Na zona DNS do domínio** (feito por quem administra o DNS), crie:
+
+| Tipo  | Nome (host)          | Valor                                             |
+|-------|----------------------|---------------------------------------------------|
+| CNAME | `custos-azure`       | o `ingress.fqdn` (…`azurecontainerapps.io`)       |
+| TXT   | `asuid.custos-azure` | o `customDomainVerificationId`                    |
+
+```bash
+# (3) Após o DNS propagar (nslookup deve resolver p/ o *.azurecontainerapps.io):
+az containerapp hostname add \
+  --hostname "$CUSTOM_DOMAIN" -g "$RG" -n "$APP"
+
+az containerapp hostname bind \
+  --hostname "$CUSTOM_DOMAIN" -g "$RG" -n "$APP" \
+  --environment "$ENVIRONMENT" --validation-method CNAME
+
+# (4) Verificar (aguarde status "Secured")
+az containerapp hostname list -g "$RG" -n "$APP" -o table
+```
+
+**Requisitos do certificado gerenciado (senão a emissão falha):**
+- CNAME **direto** para o `*.azurecontainerapps.io` (sem Cloudflare/Traffic
+  Manager/proxy no meio).
+- Domínio **alcançável pela internet** (a DigiCert valida externamente). Se
+  for DNS **interno/privado**, use certificado próprio (BYO):
+  ```bash
+  az containerapp env certificate upload -g "$RG" --name "$ENVIRONMENT" \
+    --certificate-file cert.pfx --password "SENHA" --certificate-name custos-azure-cert
+  az containerapp hostname bind --hostname "$CUSTOM_DOMAIN" -g "$RG" -n "$APP" \
+    --environment "$ENVIRONMENT" --certificate custos-azure-cert --validation-method CNAME
+  ```
+- Se houver registro **CAA** no domínio raiz, autorize a DigiCert:
+  `0 issue digicert.com`.
 
 ---
 
