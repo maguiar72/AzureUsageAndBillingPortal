@@ -1,0 +1,7 @@
+.git
+runtime/*
+!runtime/.gitkeep
+config/config.php
+*.log
+*.lock
+Documentation

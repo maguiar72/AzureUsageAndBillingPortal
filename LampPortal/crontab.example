@@ -1,0 +1,15 @@
+# =====================================================================
+#  Cron - Extracao automatica da Azure a cada 12 horas
+#
+#  Instale para o usuario do Apache (ex.: www-data) ou um usuario de
+#  servico. Ajuste o caminho absoluto para o seu deploy.
+#
+#      sudo crontab -u www-data -e
+#
+#  e cole a linha abaixo (roda 00:00 e 12:00, horario do servidor):
+# =====================================================================
+
+0 0,12 * * * /usr/bin/php /var/www/azure-portal/bin/extract.php cron >> /var/www/azure-portal/runtime/cron.log 2>&1
+
+# Dica: para testar imediatamente, rode manualmente:
+#   /usr/bin/php /var/www/azure-portal/bin/extract.php manual

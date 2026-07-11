@@ -1,0 +1,13 @@
+# Segredos e artefatos locais - NAO versionar
+config/config.php
+
+# Mantem a pasta runtime/ versionada, mas ignora seu conteudo (locks/logs)
+runtime/*
+!runtime/.gitkeep
+
+*.log
+*.lock
+
+# bin/ aqui e codigo-fonte (bin/extract.php), nao artefato de build.
+# Sobrescreve o padrao [Bb]in/ do .gitignore da raiz (projeto .NET original).
+!bin/
