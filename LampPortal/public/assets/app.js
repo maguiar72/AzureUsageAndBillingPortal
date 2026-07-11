@@ -60,6 +60,8 @@
             var s = res.body || {};
             currency = s.currency || 'USD';
             $('#cardTotal').textContent = fmtMoney(s.total_cost);
+            $('#cardLastDay').textContent = fmtMoney(s.last_day_cost);
+            $('#cardLastDayDate').textContent = s.last_day_date ? ('em ' + s.last_day_date) : '';
             $('#cardServices').textContent = num(s.service_count);
             $('#cardRGs').textContent = num(s.rg_count);
             $('#cardResources').textContent = num(s.resource_count);
@@ -130,7 +132,38 @@
         });
     }
 
+    // Colunas ordenaveis da tabela de recursos.
+    var RES_COLS = [
+        { key: 'resource_name',  label: 'Recurso' },
+        { key: 'resource_group', label: 'Resource group' },
+        { key: 'resource_type',  label: 'Tipo' },
+        { key: 'service_name',   label: 'Servico' },
+        { key: 'cost',           label: 'Custo', num: true }
+    ];
+    var resourceRows = [];
+    var resSort = { key: 'cost', dir: 'desc' };
+
     function fillResourcesTable(rows) {
+        resourceRows = (rows || []).slice();
+        sortAndRenderResources();
+    }
+
+    function sortAndRenderResources() {
+        var k = resSort.key;
+        var dir = resSort.dir === 'asc' ? 1 : -1;
+        var isNum = k === 'cost';
+        resourceRows.sort(function (a, b) {
+            var va = a[k], vb = b[k];
+            if (isNum) { return (Number(va) - Number(vb)) * dir; }
+            va = (va || '').toString().toLowerCase();
+            vb = (vb || '').toString().toLowerCase();
+            return va < vb ? -dir : (va > vb ? dir : 0);
+        });
+        renderResourceRows(resourceRows);
+        updateSortIndicators();
+    }
+
+    function renderResourceRows(rows) {
         var tbody = $('#tableResources tbody');
         tbody.innerHTML = '';
         if (!rows.length) {
@@ -145,6 +178,15 @@
             tr.appendChild(td(r.service_name));
             tr.appendChild(td(fmtMoney(r.cost), 'num'));
             tbody.appendChild(tr);
+        });
+    }
+
+    function updateSortIndicators() {
+        RES_COLS.forEach(function (c) {
+            var th = document.querySelector('#tableResources th[data-key="' + c.key + '"]');
+            if (!th) return;
+            var arrow = (resSort.key === c.key) ? (resSort.dir === 'asc' ? ' ▲' : ' ▼') : '';
+            th.textContent = c.label + arrow;
         });
     }
 
@@ -271,6 +313,19 @@
         $('#resSearch').addEventListener('input', function () {
             clearTimeout(searchTimer);
             searchTimer = setTimeout(loadResources, 350);
+        });
+        // Ordenacao por coluna (clique no cabecalho da tabela de recursos).
+        document.querySelectorAll('#tableResources th.sortable').forEach(function (th) {
+            th.addEventListener('click', function () {
+                var key = th.getAttribute('data-key');
+                if (resSort.key === key) {
+                    resSort.dir = resSort.dir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    resSort.key = key;
+                    resSort.dir = (key === 'cost') ? 'desc' : 'asc';
+                }
+                sortAndRenderResources();
+            });
         });
         var wait = setInterval(function () {
             if (window.Chart) { clearInterval(wait); loadAll(); }

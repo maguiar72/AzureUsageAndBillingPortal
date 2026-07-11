@@ -58,8 +58,8 @@ return [
             ],
         ],
 
-        // Janela de extracao (dias para tras a partir de hoje).
-        'lookback_days' => 60,
+        // Janela de extracao (dias para tras a partir de hoje). 365 = ~12 meses.
+        'lookback_days' => 365,
 
         // Versao da API Cost Management.
         'api_version' => '2023-11-01',

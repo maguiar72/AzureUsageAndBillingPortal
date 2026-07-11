@@ -24,10 +24,13 @@ $siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_
         </div>
         <div class="controls">
             <select id="rangeSelect" aria-label="Periodo">
+                <option value="1">Ultimo dia</option>
                 <option value="7">Ultimos 7 dias</option>
                 <option value="30" selected>Ultimos 30 dias</option>
                 <option value="60">Ultimos 60 dias</option>
                 <option value="90">Ultimos 90 dias</option>
+                <option value="180">Ultimos 180 dias</option>
+                <option value="365">Ultimos 12 meses</option>
             </select>
             <button id="refreshBtn" class="btn-refresh" type="button">
                 <span class="icon">⟳</span> <span class="label">Atualizar</span>
@@ -43,6 +46,11 @@ $siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_
         <div class="card">
             <span class="card-label">Custo total no periodo</span>
             <span class="card-value" id="cardTotal">—</span>
+        </div>
+        <div class="card">
+            <span class="card-label">Custo no ultimo dia</span>
+            <span class="card-value" id="cardLastDay">—</span>
+            <span class="card-sub" id="cardLastDayDate"></span>
         </div>
         <div class="card">
             <span class="card-label">Servicos</span>
@@ -106,11 +114,11 @@ $siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_
             <table class="table" id="tableResources">
                 <thead>
                     <tr>
-                        <th>Recurso</th>
-                        <th>Resource group</th>
-                        <th>Tipo</th>
-                        <th>Servico</th>
-                        <th class="num">Custo</th>
+                        <th class="sortable" data-key="resource_name">Recurso</th>
+                        <th class="sortable" data-key="resource_group">Resource group</th>
+                        <th class="sortable" data-key="resource_type">Tipo</th>
+                        <th class="sortable" data-key="service_name">Servico</th>
+                        <th class="sortable num" data-key="cost">Custo</th>
                     </tr>
                 </thead>
                 <tbody></tbody>

@@ -55,6 +55,15 @@ class ReportRepository
               ORDER BY id DESC LIMIT 1"
         );
 
+        // Custo do dia mais recente com dados (independente da janela).
+        $lastDay = $this->db->queryOne(
+            "SELECT usage_date, ROUND(SUM(cost),2) AS cost
+               FROM usage_records
+              GROUP BY usage_date
+              ORDER BY usage_date DESC
+              LIMIT 1"
+        );
+
         return [
             'window_days'    => $days,
             'total_cost'     => (float)($totals['total_cost'] ?? 0),
@@ -63,6 +72,8 @@ class ReportRepository
             'rg_count'       => (int)($totals['rg_count'] ?? 0),
             'resource_count' => (int)($totals['resource_count'] ?? 0),
             'sub_count'      => (int)($totals['sub_count'] ?? 0),
+            'last_day_date'  => $lastDay['usage_date'] ?? null,
+            'last_day_cost'  => (float)($lastDay['cost'] ?? 0),
             'last_extraction' => $last,
         ];
     }

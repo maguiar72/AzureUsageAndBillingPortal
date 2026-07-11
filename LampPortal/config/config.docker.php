@@ -63,7 +63,7 @@ return [
         'scope'          => $env('AZURE_SCOPE', 'https://management.azure.com/.default'),
 
         'subscriptions'  => $subscriptions,
-        'lookback_days'  => (int)$env('AZURE_LOOKBACK_DAYS', 60),
+        'lookback_days'  => (int)$env('AZURE_LOOKBACK_DAYS', 365), // ~12 meses
         'api_version'    => $env('AZURE_API_VERSION', '2023-11-01'),
         'currency'       => $env('APP_CURRENCY', 'USD'),
     ],

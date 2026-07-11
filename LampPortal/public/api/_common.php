@@ -24,7 +24,7 @@ function json_out($data, int $status = 200): void
 function param_days(int $default = 30): int
 {
     $days = filter_input(INPUT_GET, 'days', FILTER_VALIDATE_INT) ?: $default;
-    return max(1, min(365, $days));
+    return max(1, min(400, $days)); // ate ~13 meses (12 meses + folga)
 }
 
 /** Instancia o banco, tratando erro de conexao de forma amigavel. */

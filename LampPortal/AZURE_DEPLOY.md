@@ -264,7 +264,7 @@ az containerapp create \
      "AZURE_CLIENT_ID=${IDENTITY_CLIENT_ID}" \
      "AZURE_TENANT_ID=${TENANT_ID}" \
      "AZURE_SUBSCRIPTION_IDS=${SUBSCRIPTION_ID}" \
-     "AZURE_LOOKBACK_DAYS=60" \
+     "AZURE_LOOKBACK_DAYS=365" \
      "APP_SITE_NAME=${SITE_NAME}" \
      "APP_TIMEZONE=America/Sao_Paulo" \
      "APP_CURRENCY=USD"
@@ -319,7 +319,7 @@ az containerapp job create \
      "AZURE_CLIENT_ID=${IDENTITY_CLIENT_ID}" \
      "AZURE_TENANT_ID=${TENANT_ID}" \
      "AZURE_SUBSCRIPTION_IDS=${SUBSCRIPTION_ID}" \
-     "AZURE_LOOKBACK_DAYS=60" \
+     "AZURE_LOOKBACK_DAYS=365" \
      "APP_CURRENCY=USD"
 
 # 8.2 Aponta o registry para a Managed Identity
