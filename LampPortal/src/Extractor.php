@@ -63,9 +63,18 @@ class Extractor
         try {
             $this->syncSubscriptionsFromConfig();
 
-            $lookback = (int)($this->config['azure']['lookback_days'] ?? 60);
+            $lookback = (int)($this->config['azure']['lookback_days'] ?? 365);
             $to   = new DateTimeImmutable('now', new DateTimeZone('UTC'));
             $from = $to->sub(new DateInterval('P' . max(1, $lookback) . 'D'));
+
+            // A Cost Management Query API rejeita intervalos maiores que 1 ano.
+            // Como 'to' cobre o dia inteiro (23:59:59), limitamos o inicio a
+            // 363 dias atras: o span total (~364 dias) fica com folga abaixo
+            // de 1 ano, mantendo ~12 meses de dados.
+            $maxSpanStart = $to->sub(new DateInterval('P363D'));
+            if ($from < $maxSpanStart) {
+                $from = $maxSpanStart;
+            }
 
             // Extracao resiliente por assinatura: uma falha nao derruba as
             // demais; os dados ja obtidos sao preservados.
