@@ -326,11 +326,48 @@ class AzureClient
     }
 
     /**
-     * Executa uma requisicao HTTP via cURL.
+     * Executa uma requisicao HTTP com retry/backoff em caso de rate limit.
+     *
+     * A Cost Management API responde HTTP 429 (Too many requests) quando o
+     * limite de taxa e atingido, geralmente com um header Retry-After (seg.).
+     * Aqui respeitamos esse header (ou usamos backoff exponencial) e
+     * tentamos novamente ate $maxRetries vezes. 503 tambem e reprocessado.
+     *
      * @return array{0:int,1:string} [statusCode, responseBody]
      */
-    private function httpRequest(string $method, string $url, ?string $body, array $headers): array
+    private function httpRequest(string $method, string $url, ?string $body, array $headers, int $maxRetries = 6): array
     {
+        $attempt = 0;
+        while (true) {
+            [$status, $resp, $respHeaders] = $this->rawRequest($method, $url, $body, $headers);
+
+            if (($status === 429 || $status === 503) && $attempt < $maxRetries) {
+                $retryAfter = 0;
+                foreach ($respHeaders as $k => $v) {
+                    // 'retry-after' ou 'x-ms-ratelimit-...-retry-after'
+                    if (strpos($k, 'retry-after') !== false) {
+                        $retryAfter = (int)$v;
+                        if ($retryAfter > 0) break;
+                    }
+                }
+                // Backoff exponencial (2,4,8,...) limitado a 60s se nao houver header.
+                $wait = $retryAfter > 0 ? $retryAfter : min(60, 2 * (2 ** $attempt));
+                $attempt++;
+                sleep($wait);
+                continue;
+            }
+
+            return [$status, $resp];
+        }
+    }
+
+    /**
+     * Requisicao cURL crua.
+     * @return array{0:int,1:string,2:array} [statusCode, body, headersMinusculos]
+     */
+    private function rawRequest(string $method, string $url, ?string $body, array $headers): array
+    {
+        $respHeaders = [];
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_CUSTOMREQUEST  => $method,
@@ -338,6 +375,14 @@ class AzureClient
             CURLOPT_HTTPHEADER     => $headers,
             CURLOPT_TIMEOUT        => 120,
             CURLOPT_CONNECTTIMEOUT => 30,
+            CURLOPT_HEADERFUNCTION => function ($ch, $line) use (&$respHeaders) {
+                $p = strpos($line, ':');
+                if ($p !== false) {
+                    $k = strtolower(trim(substr($line, 0, $p)));
+                    $respHeaders[$k] = trim(substr($line, $p + 1));
+                }
+                return strlen($line);
+            },
         ]);
         if ($body !== null) {
             curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
@@ -352,6 +397,6 @@ class AzureClient
         $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
-        return [$status, (string)$resp];
+        return [$status, (string)$resp, $respHeaders];
     }
 }
