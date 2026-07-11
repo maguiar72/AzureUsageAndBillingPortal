@@ -40,8 +40,8 @@ a **mesma imagem**; escala a zero (job) mantendo só o web ligado (barato).
 # Azure CLI atualizada e login
 az upgrade --yes
 az login
-# Se tiver várias assinaturas, selecione a que será monitorada/faturada:
-az account set --subscription "<NOME_OU_ID_DA_ASSINATURA>"
+# Assinatura que será monitorada/faturada (pré-preenchida):
+az account set --subscription "b1bfe399-f3df-402f-a27e-b33e73b4a776"
 
 # Extensões necessárias
 az extension add --name containerapp --upgrade
@@ -63,7 +63,8 @@ reutilizados nos passos seguintes.
 
 ```bash
 # ---- Ajuste estes ----
-export LOCATION="brazilsouth"
+export LOCATION="brazilsouth"                                    # Brazil South
+export SUBSCRIPTION_ID="b1bfe399-f3df-402f-a27e-b33e73b4a776"    # assinatura a monitorar
 export RG="rg-azure-portal"
 export MYSQL_ADMIN="azadmin"
 export MYSQL_ADMIN_PASS='Troque#Admin-$(openssl rand -hex 6)'   # senha forte
@@ -84,8 +85,7 @@ export DB_NAME="azure_portal"
 export IMAGE="azure-portal"
 export IMAGE_TAG="v1"
 
-# Derivados da conta logada
-export SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+# Tenant derivado da conta logada (a assinatura já foi fixada acima)
 export TENANT_ID=$(az account show --query tenantId -o tsv)
 
 echo "RG=$RG  ACR=$ACR  MYSQL=$MYSQL  SUB=$SUBSCRIPTION_ID"
