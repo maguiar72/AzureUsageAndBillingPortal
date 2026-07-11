@@ -203,8 +203,10 @@ class AzureClient
             }
 
             $requestUrl = $props['nextLink'] ?? null;
-            // Em paginas subsequentes o corpo ja nao e necessario.
-            $body = null;
+            // A Query API continua a paginacao via POST com o MESMO corpo
+            // (o $skiptoken vai na nextLink). Reenviar sem corpo faz o
+            // servidor responder HTTP 411 (Length Required), entao o body
+            // e mantido em todas as paginas.
             $guard++;
         } while ($requestUrl && $guard < 100);
 

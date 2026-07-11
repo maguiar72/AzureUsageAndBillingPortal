@@ -67,13 +67,39 @@ class Extractor
             $to   = new DateTimeImmutable('now', new DateTimeZone('UTC'));
             $from = $to->sub(new DateInterval('P' . max(1, $lookback) . 'D'));
 
+            // Extracao resiliente por assinatura: uma falha nao derruba as
+            // demais; os dados ja obtidos sao preservados.
             $defaultTenant = $this->config['azure']['tenant_id'];
+            $errors = [];
             foreach ($this->config['azure']['subscriptions'] as $sub) {
                 $subId  = $sub['id'];
                 $tenant = $sub['tenant_id'] ?? $defaultTenant;
 
-                $rows = $this->azure->queryUsage($subId, $tenant, $from, $to);
-                $totalRows += $this->upsertRows($subId, $rows);
+                try {
+                    $rows = $this->azure->queryUsage($subId, $tenant, $from, $to);
+                    $totalRows += $this->upsertRows($subId, $rows);
+                } catch (Throwable $e) {
+                    $errors[] = $subId . ': ' . $e->getMessage();
+                }
+            }
+
+            if ($errors) {
+                // Sucesso parcial: dados bons ja gravados; reporta as falhas.
+                $msg = "Concluido com {$totalRows} registros; "
+                     . count($errors) . ' assinatura(s) com erro: '
+                     . implode(' || ', $errors);
+                $this->db->execute(
+                    'UPDATE extraction_log
+                        SET finished_at = NOW(), status = ?, rows_upserted = ?, message = ?
+                      WHERE id = ?',
+                    ['error', $totalRows, mb_substr($msg, 0, 4000), $logId]
+                );
+                return [
+                    'ok'      => false,
+                    'rows'    => $totalRows,
+                    'message' => $msg,
+                    'log_id'  => $logId,
+                ];
             }
 
             $this->db->execute(
