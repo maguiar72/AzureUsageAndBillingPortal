@@ -27,6 +27,13 @@ function param_days(int $default = 30): int
     return max(1, min(400, $days)); // ate ~13 meses (12 meses + folga)
 }
 
+/** Le e valida o filtro de assinatura (GUID). Vazio = todas. */
+function param_sub(): string
+{
+    $s = (string)(filter_input(INPUT_GET, 'sub') ?? '');
+    return preg_match('/^[0-9a-fA-F-]{36}$/', $s) ? $s : '';
+}
+
 /** Instancia o banco, tratando erro de conexao de forma amigavel. */
 function get_db(array $config): Database
 {

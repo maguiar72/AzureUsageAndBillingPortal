@@ -4,4 +4,4 @@ $config = require __DIR__ . '/_common.php';
 
 $db = get_db($config);
 $repo = new ReportRepository($db);
-json_out(['days' => param_days(), 'series' => $repo->timeseries(param_days())]);
+json_out(['days' => param_days(), 'series' => $repo->timeseries(param_days(), param_sub())]);

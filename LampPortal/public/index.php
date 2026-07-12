@@ -2,6 +2,14 @@
 declare(strict_types=1);
 $config = require __DIR__ . '/../src/bootstrap.php';
 $siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_QUOTES);
+
+// Cache-busting: o ?v muda quando o arquivo e reconstruido (novo deploy),
+// forcando o navegador a baixar a versao nova dos assets.
+$assetVer = static function (string $rel): string {
+    $path = __DIR__ . '/' . $rel;
+    $v = is_file($path) ? (string)filemtime($path) : '1';
+    return $rel . '?v=' . $v;
+};
 ?>
 <!DOCTYPE html>
 <html lang="pt-br">
@@ -9,7 +17,7 @@ $siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $siteName ?></title>
-    <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="<?= htmlspecialchars($assetVer('assets/style.css'), ENT_QUOTES) ?>">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
 </head>
 <body>
@@ -32,6 +40,8 @@ $siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_
                 <option value="180">Ultimos 180 dias</option>
                 <option value="365">Ultimos 12 meses</option>
             </select>
+            <button id="exportHtml" class="btn-ghost" type="button" title="Exportar relatorio em HTML">⬇ HTML</button>
+            <button id="exportXlsx" class="btn-ghost" type="button" title="Exportar relatorio em Excel">⬇ Excel</button>
             <button id="refreshBtn" class="btn-refresh" type="button">
                 <span class="icon">⟳</span> <span class="label">Atualizar</span>
             </button>
@@ -42,6 +52,7 @@ $siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_
 <main class="wrap">
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <div id="extractionWarn" class="warn" role="alert" hidden></div>
+    <div id="subFilter" class="subfilter" role="status" hidden></div>
 
     <section class="cards" id="cards">
         <div class="card">
@@ -76,6 +87,11 @@ $siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_
     </section>
 
     <section class="panel">
+        <h2>Custo por area de negocio <span class="tag">visao do gestor</span></h2>
+        <div class="chart-box"><canvas id="chartCategory"></canvas></div>
+    </section>
+
+    <section class="panel">
         <h2>Custo por dia</h2>
         <div class="chart-box"><canvas id="chartTimeseries"></canvas></div>
     </section>
@@ -97,7 +113,7 @@ $siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_
             <div class="chart-box"><canvas id="chartType"></canvas></div>
         </section>
         <section class="panel">
-            <h2>Custo por assinatura</h2>
+            <h2>Custo por assinatura <span class="tag">clique para filtrar</span></h2>
             <table class="table" id="tableSubs">
                 <thead><tr><th>Assinatura</th><th class="num">Custo</th></tr></thead>
                 <tbody></tbody>
@@ -139,6 +155,6 @@ $siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_
        Portal LAMP baseado no projeto Azure Usage &amp; Billing Insights.</p>
 </footer>
 
-<script src="assets/app.js" defer></script>
+<script src="<?= htmlspecialchars($assetVer('assets/app.js'), ENT_QUOTES) ?>" defer></script>
 </body>
 </html>

@@ -52,6 +52,15 @@ body {
 .btn-refresh:hover { background: var(--brand-dark); }
 .btn-refresh:active { transform: translateY(1px); }
 .btn-refresh:disabled { opacity: .65; cursor: not-allowed; }
+.btn-ghost {
+    padding: 9px 12px; border: 1px solid #33507f; border-radius: 8px;
+    background: #16264a; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.btn-ghost:hover { background: #1e3358; }
+.tag {
+    font-size: 11px; font-weight: 600; color: #0078d4; background: #e8f1fb;
+    border-radius: 999px; padding: 2px 8px; margin-left: 6px; vertical-align: middle;
+}
 .btn-refresh .icon { display: inline-block; font-size: 16px; }
 .btn-refresh.spinning .icon { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -73,6 +82,19 @@ body {
     box-shadow: var(--shadow); word-break: break-word;
 }
 .warn[hidden] { display: none; }
+
+/* ---- Barra do filtro de assinatura ---- */
+.subfilter {
+    margin: 18px 0 0; padding: 10px 14px; border-radius: 8px; font-size: 13.5px;
+    background: #e8f1fb; color: #0f172a; border: 1px solid #bfdbfe;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.subfilter[hidden] { display: none; }
+.chip-clear {
+    border: 0; background: var(--brand); color: #fff; border-radius: 999px;
+    padding: 4px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.chip-clear:hover { background: var(--brand-dark); }
 
 /* ---- Cards ---- */
 .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 22px 0; }
@@ -99,6 +121,9 @@ body {
 .table th, .table td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; }
 .table th.num, .table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .table tbody tr:hover { background: #f8fafc; }
+.table tr.clickable { cursor: pointer; }
+.table tr.selected { background: #e8f1fb; }
+.table tr.selected td:first-child { box-shadow: inset 3px 0 0 var(--brand); font-weight: 600; }
 .table th.sortable { cursor: pointer; user-select: none; white-space: nowrap; color: var(--muted); }
 .table th.sortable:hover { color: var(--brand); }
 .table th.sortable.sorted { color: var(--brand); }

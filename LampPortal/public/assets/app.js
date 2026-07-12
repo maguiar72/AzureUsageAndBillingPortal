@@ -8,9 +8,16 @@
 
     var charts = {};
     var currentDays = 30;
+    var currentSub = '';        // filtro de assinatura (vazio = todas)
+    var subNames = {};          // subscription_id -> nome amigavel
     var currency = 'USD';
     var pollTimer = null;
     var searchTimer = null;
+
+    // Sufixo de querystring com o filtro de assinatura ativo.
+    function subParam() {
+        return currentSub ? ('&sub=' + encodeURIComponent(currentSub)) : '';
+    }
 
     var PALETTE = [
         '#0078d4', '#22c55e', '#f59e0b', '#ef4444',
@@ -49,6 +56,7 @@
     /* ---------- Carga de dados ---------- */
     function loadAll() {
         var d = currentDays;
+        renderSubFilter();
         loadSummary(d);
         loadTimeseries(d);
         loadBreakdown(d);
@@ -56,7 +64,7 @@
     }
 
     function loadSummary(days) {
-        getJSON('api/summary.php?days=' + days).then(function (res) {
+        getJSON('api/summary.php?days=' + days + subParam()).then(function (res) {
             var s = res.body || {};
             currency = s.currency || 'USD';
             $('#cardTotal').textContent = fmtMoney(s.total_cost);
@@ -85,7 +93,7 @@
     }
 
     function loadTimeseries(days) {
-        getJSON('api/timeseries.php?days=' + days).then(function (res) {
+        getJSON('api/timeseries.php?days=' + days + subParam()).then(function (res) {
             var series = (res.body && res.body.series) || [];
             drawLine('chartTimeseries',
                 series.map(function (r) { return r.usage_date; }),
@@ -94,8 +102,10 @@
     }
 
     function loadBreakdown(days) {
-        getJSON('api/breakdown.php?days=' + days).then(function (res) {
+        getJSON('api/breakdown.php?days=' + days + subParam()).then(function (res) {
             var b = res.body || {};
+            drawBar('chartCategory',
+                pluck(b.by_category, 'category'), pluck(b.by_category, 'cost'), false);
             drawDoughnut('chartService',
                 pluck(b.by_service, 'service_name'), pluck(b.by_service, 'cost'));
             drawBar('chartRG',
@@ -109,7 +119,7 @@
     function loadResources() {
         var q = $('#resSearch').value.trim();
         var url = 'api/resources.php?days=' + currentDays + '&limit=200'
-                + (q ? '&q=' + encodeURIComponent(q) : '');
+                + subParam() + (q ? '&q=' + encodeURIComponent(q) : '');
         getJSON(url).then(function (res) {
             var rows = (res.body && res.body.resources) || [];
             fillResourcesTable(rows);
@@ -131,16 +141,49 @@
     function fillSubsTable(rows) {
         var tbody = $('#tableSubs tbody');
         tbody.innerHTML = '';
+        subNames = {};
         if (!rows.length) {
             tbody.innerHTML = '<tr><td colspan="2" class="muted">Sem dados no periodo.</td></tr>';
             return;
         }
         rows.forEach(function (r) {
+            subNames[r.subscription_id] = r.display_name;
             var tr = document.createElement('tr');
+            tr.className = 'clickable' + (currentSub === r.subscription_id ? ' selected' : '');
+            tr.title = 'Clique para filtrar todo o painel por esta assinatura';
             tr.appendChild(td(r.display_name));
             tr.appendChild(td(fmtMoney(r.cost), 'num'));
+            tr.addEventListener('click', function () {
+                // Alterna: clicar na selecionada limpa o filtro.
+                currentSub = (currentSub === r.subscription_id) ? '' : r.subscription_id;
+                loadAll();
+            });
             tbody.appendChild(tr);
         });
+        renderSubFilter();
+    }
+
+    // Barra que indica o filtro de assinatura ativo (com botao de limpar).
+    function renderSubFilter() {
+        var el = $('#subFilter');
+        if (!el) return;
+        if (currentSub) {
+            el.innerHTML = '';
+            var span = document.createElement('span');
+            span.innerHTML = 'Filtrando por assinatura: <b>'
+                + (subNames[currentSub] || currentSub) + '</b>';
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'chip-clear';
+            btn.textContent = '✕ limpar filtro';
+            btn.addEventListener('click', function () { currentSub = ''; loadAll(); });
+            el.appendChild(span);
+            el.appendChild(btn);
+            el.hidden = false;
+        } else {
+            el.hidden = true;
+            el.innerHTML = '';
+        }
     }
 
     // Colunas ordenaveis da tabela de recursos.
@@ -253,12 +296,12 @@
         });
     }
 
-    function drawBar(id, labels, data) {
+    function drawBar(id, labels, data, drill) {
         if (charts[id]) charts[id].destroy();
         charts[id] = new Chart(ctx(id), {
             type: 'bar',
             data: { labels: labels, datasets: [{ label: 'Custo', data: data, backgroundColor: PALETTE[0] }] },
-            options: baseOptions(false, true)
+            options: baseOptions(false, drill !== false)
         });
     }
 
@@ -345,8 +388,14 @@
     }
 
     /* ---------- Init ---------- */
+    function downloadExport(fmt) {
+        window.location.href = 'api/export.php?format=' + fmt + '&days=' + currentDays + subParam();
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         $('#refreshBtn').addEventListener('click', doRefresh);
+        $('#exportHtml').addEventListener('click', function () { downloadExport('html'); });
+        $('#exportXlsx').addEventListener('click', function () { downloadExport('xlsx'); });
         $('#rangeSelect').addEventListener('change', function (e) {
             currentDays = parseInt(e.target.value, 10) || 30;
             loadAll();
