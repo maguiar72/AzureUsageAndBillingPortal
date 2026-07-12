@@ -50,6 +50,53 @@ function money($v, string $cur): string
 }
 
 // =====================================================================
+//  CSV (fallback quando a extensao zip do PHP nao esta disponivel; o CSV
+//  abre normalmente no Excel). Tambem acessivel via format=csv.
+// =====================================================================
+if ($format === 'csv' || ($format === 'xlsx' && !class_exists('ZipArchive'))) {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="' . $fileTag . '.csv"');
+    header('Cache-Control: no-store');
+    echo "\xEF\xBB\xBF"; // BOM UTF-8 para acentos no Excel
+
+    $sep = ';';
+    $line = function (array $cols) use ($sep) {
+        $out = [];
+        foreach ($cols as $c) {
+            $c = str_replace('"', '""', (string)$c);
+            $out[] = '"' . $c . '"';
+        }
+        echo implode($sep, $out) . "\r\n";
+    };
+
+    $line([$siteName . ' - Relatorio de custos']);
+    $line(['Periodo (dias)', $days, 'Moeda', $currency, 'Gerado em', $stamp]);
+    $line([]);
+    $line(['CUSTO POR AREA DE NEGOCIO (visao do gestor)']);
+    $line(['Area', 'Custo (' . $currency . ')']);
+    foreach ($byCat as $r) { $line([$r['category'], number_format((float)$r['cost'], 2, ',', '.')]); }
+    $line([]);
+    $line(['CUSTO POR SERVICO']);
+    $line(['Servico', 'Custo (' . $currency . ')']);
+    foreach ($byService as $r) { $line([$r['service_name'], number_format((float)$r['cost'], 2, ',', '.')]); }
+    $line([]);
+    $line(['CUSTO POR ASSINATURA']);
+    $line(['Assinatura', 'Custo (' . $currency . ')']);
+    foreach ($bySub as $r) { $line([$r['display_name'], number_format((float)$r['cost'], 2, ',', '.')]); }
+    $line([]);
+    $line(['ITENS CONSUMIDOS (POR RECURSO)']);
+    $line(['Recurso', 'Resource group', 'Tipo', 'Servico', 'Assinatura', 'Custo (' . $currency . ')']);
+    foreach ($resources as $r) {
+        $line([
+            $r['resource_name'], $r['resource_group'], $r['resource_type'],
+            $r['service_name'], $r['subscription_id'],
+            number_format((float)$r['cost'], 2, ',', '.'),
+        ]);
+    }
+    exit;
+}
+
+// =====================================================================
 //  EXCEL (.xlsx)
 // =====================================================================
 if ($format === 'xlsx') {

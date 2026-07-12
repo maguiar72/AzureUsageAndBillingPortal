@@ -5,8 +5,12 @@
 # =====================================================================
 FROM php:8.2-apache
 
-# Extensoes PHP: pdo_mysql (banco). curl ja vem embutido no PHP oficial.
-RUN docker-php-ext-install pdo_mysql \
+# Extensoes PHP: pdo_mysql (banco) e zip (geracao de .xlsx via ZipArchive).
+# libzip-dev e necessario para compilar a extensao zip. curl ja vem embutido.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libzip-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && docker-php-ext-install pdo_mysql zip \
     && a2enmod headers rewrite
 
 # CA do Azure Database for MySQL Flexible Server (verificacao TLS estrita).
