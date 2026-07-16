@@ -63,6 +63,11 @@ return [
 
         // Versao da API Cost Management.
         'api_version' => '2023-11-01',
+
+        // Microsoft Graph (licenciamento M365). Requer permissoes de app
+        // Organization.Read.All + User.Read.All + Directory.Read.All.
+        'graph_url'        => 'https://graph.microsoft.com',
+        'licenses_enabled' => false,
     ],
 
     // -----------------------------------------------------------------

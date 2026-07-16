@@ -429,7 +429,90 @@ az containerapp hostname list -g "$RG" -n "$APP" -o table
 
 ---
 
-## 12. Custos e limpeza
+## 12. (Opcional) Aba de Licenciamento M365 (Graph + login Entra ID)
+
+A aba de **Licenciamento** (planos O365 E1/E3/E5, adquiridas × em uso e os
+logins atribuídos) usa o **Microsoft Graph** e fica **protegida por login
+Entra ID** (o portal de custos continua público). Requer 3 ajustes.
+
+### 13.1 Conceder permissões do Graph à Managed Identity (admin do Entra ID)
+
+A identidade precisa das permissões de aplicativo **Organization.Read.All**
+(subscribedSkus) e **User.Read.All** (usuários + licenças). Quem roda isto
+precisa ser **Global Admin** ou **Privileged Role Admin**.
+
+```bash
+# principalId da identidade (se nao estiver na sessao)
+export IDENTITY_PRINCIPAL_ID=$(az identity show -g "$RG" -n "$IDENTITY" --query principalId -o tsv)
+
+GRAPH_APPID="00000003-0000-0000-c000-000000000000"     # Microsoft Graph (constante)
+GRAPH_SP_ID=$(az ad sp show --id "$GRAPH_APPID" --query id -o tsv)
+
+for PERM in "Organization.Read.All" "User.Read.All"; do
+  ROLE_ID=$(az ad sp show --id "$GRAPH_APPID" \
+    --query "appRoles[?value=='$PERM' && contains(allowedMemberTypes,'Application')].id | [0]" -o tsv)
+  az rest --method POST \
+    --uri "https://graph.microsoft.com/v1.0/servicePrincipals/$IDENTITY_PRINCIPAL_ID/appRoleAssignments" \
+    --headers "Content-Type=application/json" \
+    --body "{\"principalId\":\"$IDENTITY_PRINCIPAL_ID\",\"resourceId\":\"$GRAPH_SP_ID\",\"appRoleId\":\"$ROLE_ID\"}"
+done
+
+# Conferir
+az rest --method GET \
+  --uri "https://graph.microsoft.com/v1.0/servicePrincipals/$IDENTITY_PRINCIPAL_ID/appRoleAssignments" \
+  --query "value[].appRoleId" -o tsv
+```
+
+> A propagação da permissão pode levar alguns minutos.
+
+### 13.2 Habilitar login Entra ID no Container App (Easy Auth, anônimo permitido)
+
+Cria um app registration para o login e liga a autenticação **mantendo o
+site público** (a app exige login apenas na aba de licenciamento).
+
+```bash
+# App registration para o Easy Auth (redirect nos dois dominios)
+AUTH_APP_ID=$(az ad app create --display-name "custos-azure-auth" \
+  --web-redirect-uris \
+     "https://custos-azure.trf3.jus.br/.auth/login/aad/callback" \
+     "https://${APP_URL}/.auth/login/aad/callback" \
+  --query appId -o tsv)
+AUTH_SECRET=$(az ad app credential reset --id "$AUTH_APP_ID" --query password -o tsv)
+
+# Liga o provedor Microsoft (Entra ID) e mantem acesso anonimo (site publico)
+az containerapp auth microsoft update -g "$RG" -n "$APP" \
+  --client-id "$AUTH_APP_ID" --client-secret "$AUTH_SECRET" \
+  --tenant-id "$TENANT_ID" --yes
+az containerapp auth update -g "$RG" -n "$APP" \
+  --unauthenticated-client-action AllowAnonymous
+```
+
+- **AllowAnonymous** = requisições sem login passam (portal de custos
+  público); a aba de licenciamento redireciona para `/.auth/login/aad`
+  quando não há sessão, e a app lê o cabeçalho `X-MS-CLIENT-PRINCIPAL-NAME`.
+- **Restringir quem entra** (opcional): no app registration, exija
+  atribuição de usuário/grupo (Enterprise Applications → Properties →
+  *Assignment required* = Yes) e atribua o grupo autorizado.
+
+### 13.3 Criar as tabelas e habilitar a extração
+
+```bash
+# Tabelas de licenca (re-rodar o schema e idempotente)
+mysql -h "$DB_HOST" -u "$MYSQL_ADMIN" -p"$MYSQL_ADMIN_PASS" --ssl "$DB_NAME" < sql/schema.sql
+
+# LICENSES_ENABLED ja vem 1 por padrao; garanta no job:
+az containerapp job update -g "$RG" -n "$JOB" --set-env-vars "LICENSES_ENABLED=1"
+az containerapp job start   -g "$RG" -n "$JOB"     # coleta licencas agora
+```
+
+Depois, acesse **https://custos-azure.trf3.jus.br/licencas.php** — será pedido
+login Entra ID e, autenticado, você vê os planos e os logins atribuídos. Se
+os cards ficarem zerados, veja `api/status.php` — a mensagem traz
+`Licencas (falha): ...` caso a permissão do Graph ainda não tenha propagado.
+
+---
+
+## 13. Custos e limpeza
 
 - **MySQL B1ms** é o maior item (~US$ 12–15/mês). O **web** com 1 réplica
   0.5 vCPU/1 GiB é barato; o **job** só custa quando roda (segundos, 2×/dia).

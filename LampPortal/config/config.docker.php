@@ -60,7 +60,12 @@ return [
 
         'login_url'      => $env('AZURE_LOGIN_URL', 'https://login.microsoftonline.com'),
         'management_url' => $env('AZURE_MANAGEMENT_URL', 'https://management.azure.com'),
+        'graph_url'      => $env('AZURE_GRAPH_URL', 'https://graph.microsoft.com'),
         'scope'          => $env('AZURE_SCOPE', 'https://management.azure.com/.default'),
+
+        // Licenciamento M365 (Microsoft Graph). Requer permissoes de app
+        // Organization.Read.All + User.Read.All + Directory.Read.All na MI.
+        'licenses_enabled' => (bool)$env('LICENSES_ENABLED', '1'),
 
         'subscriptions'  => $subscriptions,
         'lookback_days'  => (int)$env('AZURE_LOOKBACK_DAYS', 365), // ~12 meses

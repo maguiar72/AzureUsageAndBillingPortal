@@ -33,16 +33,20 @@ class AzureClient
      *
      * Faz cache em memoria durante a execucao.
      */
-    public function getAccessToken(string $tenantId): string
+    public function getAccessToken(string $tenantId, ?string $resource = null): string
     {
-        $method = $this->cfg['auth_method'] ?? 'client_secret';
+        // Recurso padrao: Azure Resource Manager. Para o Microsoft Graph,
+        // passe https://graph.microsoft.com.
+        $resource = $resource !== null ? rtrim($resource, '/') : rtrim($this->cfg['management_url'], '/');
 
+        $method = $this->cfg['auth_method'] ?? 'client_secret';
         if ($method === 'managed_identity') {
-            return $this->getManagedIdentityToken();
+            return $this->getManagedIdentityToken($resource);
         }
 
-        if (isset($this->tokenCache[$tenantId])) {
-            return $this->tokenCache[$tenantId];
+        $cacheKey = 'cs:' . $tenantId . ':' . $resource;
+        if (isset($this->tokenCache[$cacheKey])) {
+            return $this->tokenCache[$cacheKey];
         }
 
         $url = rtrim($this->cfg['login_url'], '/') . "/{$tenantId}/oauth2/v2.0/token";
@@ -50,7 +54,7 @@ class AzureClient
             'grant_type'    => 'client_credentials',
             'client_id'     => $this->cfg['client_id'],
             'client_secret' => $this->cfg['client_secret'],
-            'scope'         => $this->cfg['scope'],
+            'scope'         => $resource . '/.default',
         ]);
 
         [$status, $resp] = $this->httpRequest('POST', $url, $body, [
@@ -68,7 +72,7 @@ class AzureClient
             throw new RuntimeException('Resposta de token invalida da Azure.');
         }
 
-        return $this->tokenCache[$tenantId] = $data['access_token'];
+        return $this->tokenCache[$cacheKey] = $data['access_token'];
     }
 
     /**
@@ -81,13 +85,14 @@ class AzureClient
      * Para identidade atribuida pelo usuario (user-assigned), informe o
      * client_id da identidade em config 'client_id'.
      */
-    private function getManagedIdentityToken(): string
+    private function getManagedIdentityToken(?string $resource = null): string
     {
-        if (isset($this->tokenCache['__mi__'])) {
-            return $this->tokenCache['__mi__'];
+        $resource = $resource !== null ? rtrim($resource, '/') : rtrim($this->cfg['management_url'], '/');
+        $cacheKey = 'mi:' . $resource;
+        if (isset($this->tokenCache[$cacheKey])) {
+            return $this->tokenCache[$cacheKey];
         }
 
-        $resource = rtrim($this->cfg['management_url'], '/'); // https://management.azure.com
         $clientId = $this->cfg['client_id'] ?? '';
 
         $identityEndpoint = getenv('IDENTITY_ENDPOINT') ?: '';
@@ -127,7 +132,63 @@ class AzureClient
             throw new RuntimeException('Resposta de token (Managed Identity) invalida.');
         }
 
-        return $this->tokenCache['__mi__'] = $data['access_token'];
+        return $this->tokenCache[$cacheKey] = $data['access_token'];
+    }
+
+    // -----------------------------------------------------------------
+    //  Microsoft Graph (licenciamento Microsoft 365)
+    // -----------------------------------------------------------------
+
+    private function graphBase(): string
+    {
+        return rtrim($this->cfg['graph_url'] ?? 'https://graph.microsoft.com', '/');
+    }
+
+    /** GET paginado no Graph (segue @odata.nextLink). Retorna todos os 'value'. */
+    private function graphGetAll(string $url, string $tenantId): array
+    {
+        $token = $this->getAccessToken($tenantId, $this->graphBase());
+        $items = [];
+        $guard = 0;
+        while ($url && $guard < 500) {
+            [$status, $resp] = $this->httpRequest('GET', $url, null, [
+                'Authorization: Bearer ' . $token,
+                'Accept: application/json',
+            ]);
+            if ($status !== 200) {
+                throw new RuntimeException(
+                    "Erro no Microsoft Graph (HTTP {$status}): " . $this->extractError($resp)
+                );
+            }
+            $data = json_decode($resp, true);
+            foreach (($data['value'] ?? []) as $v) {
+                $items[] = $v;
+            }
+            $url = $data['@odata.nextLink'] ?? '';
+            $guard++;
+        }
+        return $items;
+    }
+
+    /**
+     * Licencas (SKUs) contratadas no tenant: adquiridas x em uso por plano.
+     * GET /v1.0/subscribedSkus
+     */
+    public function getSubscribedSkus(string $tenantId): array
+    {
+        $url = $this->graphBase() . '/v1.0/subscribedSkus';
+        return $this->graphGetAll($url, $tenantId);
+    }
+
+    /**
+     * Usuarios com suas licencas atribuidas.
+     * GET /v1.0/users?$select=...&$top=999
+     */
+    public function getUsersWithLicenses(string $tenantId): array
+    {
+        $url = $this->graphBase()
+            . '/v1.0/users?$select=userPrincipalName,displayName,accountEnabled,assignedLicenses&$top=999';
+        return $this->graphGetAll($url, $tenantId);
     }
 
     /**

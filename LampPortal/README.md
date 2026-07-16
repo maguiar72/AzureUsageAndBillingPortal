@@ -174,6 +174,18 @@ rodar o refresh várias vezes apenas atualiza os mesmos registros.
 | `api/export.php?format=xlsx` | GET    | Exporta relatório em Excel (`.xlsx`) ou HTML (`format=html`) |
 | `api/status.php`             | GET    | Estado da extração atual/última                       |
 | `api/refresh.php`            | POST   | Dispara nova extração (botão Atualizar)               |
+| `api/licenses.php`           | GET    | **(protegido)** Licenciamento M365: SKUs adquiridas × em uso |
+| `api/license_users.php?sku=` | GET    | **(protegido)** Logins atribuídos a uma licença       |
+
+### Aba de Licenciamento M365 (protegida)
+
+`public/licencas.php` mostra as licenças Office/Microsoft 365 (E1/E3/E5…):
+adquiridas × em uso × disponíveis por plano e os **logins atribuídos**.
+Os dados vêm do **Microsoft Graph** (`subscribedSkus` + usuários) e a aba é
+**protegida por login Entra ID** (Container Apps Easy Auth), já que expõe
+dados pessoais — o portal de custos continua público. Nomes de plano
+amigáveis em `src/LicenseSkus.php`. Ver `AZURE_DEPLOY.md` §12 para permissões
+do Graph e habilitação do login.
 
 O parâmetro `days` aceita 1–400 (padrão 30). A “área de negócio” traduz nomes
 técnicos de serviço (ex.: *Foundry Models* → *Inteligência Artificial*,

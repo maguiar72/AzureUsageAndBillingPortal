@@ -73,3 +73,35 @@ CREATE TABLE IF NOT EXISTS `extraction_log` (
   PRIMARY KEY (`id`),
   KEY `ix_started` (`started_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------
+--  Licenciamento Microsoft 365 (dados do Microsoft Graph).
+--  Snapshot: a cada extracao as linhas do tenant sao substituidas.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `license_skus` (
+  `tenant_id`         CHAR(36)     NOT NULL,
+  `sku_id`            CHAR(36)     NOT NULL,
+  `sku_part_number`   VARCHAR(100) NOT NULL DEFAULT '',
+  `friendly_name`     VARCHAR(150) NOT NULL DEFAULT '',
+  `enabled`           INT          NOT NULL DEFAULT 0,  -- adquiridas (prepaidUnits.enabled)
+  `consumed`          INT          NOT NULL DEFAULT 0,  -- em uso (consumedUnits)
+  `suspended`         INT          NOT NULL DEFAULT 0,
+  `warning`           INT          NOT NULL DEFAULT 0,
+  `capability_status` VARCHAR(50)  NOT NULL DEFAULT '',
+  `captured_at`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`tenant_id`,`sku_id`),
+  KEY `ix_sku_part` (`sku_part_number`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `license_assignments` (
+  `tenant_id`           CHAR(36)     NOT NULL,
+  `user_principal_name` VARCHAR(255) NOT NULL,
+  `display_name`        VARCHAR(255) NOT NULL DEFAULT '',
+  `sku_id`              CHAR(36)     NOT NULL,
+  `sku_part_number`     VARCHAR(100) NOT NULL DEFAULT '',
+  `account_enabled`     TINYINT(1)   NOT NULL DEFAULT 1,
+  `captured_at`         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`tenant_id`,`user_principal_name`,`sku_id`),
+  KEY `ix_la_sku` (`tenant_id`,`sku_id`),
+  KEY `ix_la_upn` (`user_principal_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
