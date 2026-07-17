@@ -58,12 +58,16 @@ $assetVer = static function (string $rel): string {
         </section>
         <section class="panel">
             <h2>Planos de licenca</h2>
+            <span class="col-hint">↕ Clique nos cabecalhos para ordenar &middot; licencas gratuitas/ilimitadas ocultas</span>
             <div class="table-scroll">
                 <table class="table" id="tableSkus">
                     <thead><tr>
-                        <th>Plano</th><th>SKU</th>
-                        <th class="num">Adquiridas</th><th class="num">Em uso</th>
-                        <th class="num">Disponiveis</th><th class="num">% uso</th>
+                        <th class="sortable" data-key="friendly_name">Plano</th>
+                        <th class="sortable" data-key="sku_part_number">SKU</th>
+                        <th class="sortable num" data-key="enabled">Adquiridas</th>
+                        <th class="sortable num" data-key="consumed">Em uso</th>
+                        <th class="sortable num" data-key="available">Disponiveis</th>
+                        <th class="sortable num" data-key="usage_pct">% uso</th>
                     </tr></thead>
                     <tbody></tbody>
                 </table>

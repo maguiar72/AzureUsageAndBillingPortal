@@ -63,22 +63,59 @@
         }
     }
 
+    // Colunas ordenaveis da tabela de planos.
+    var SKU_COLS = [
+        { key: 'friendly_name', label: 'Plano' },
+        { key: 'sku_part_number', label: 'SKU' },
+        { key: 'enabled', label: 'Adquiridas', num: true },
+        { key: 'consumed', label: 'Em uso', num: true },
+        { key: 'available', label: 'Disponiveis', num: true },
+        { key: 'usage_pct', label: '% uso', num: true }
+    ];
+    var skuRows = [];
+    var skuSort = { key: 'enabled', dir: 'desc' };
+
     function fillSkus(skus) {
+        skuRows = (skus || []).slice();
+        sortAndRenderSkus();
+    }
+
+    function sortAndRenderSkus() {
+        var col = null;
+        SKU_COLS.forEach(function (c) { if (c.key === skuSort.key) col = c; });
+        var isNum = col && col.num;
+        var dir = skuSort.dir === 'asc' ? 1 : -1;
+        var k = skuSort.key;
+        skuRows.sort(function (a, b) {
+            var va = a[k], vb = b[k];
+            if (isNum) { return (Number(va) - Number(vb)) * dir; }
+            va = (va || '').toString().toLowerCase();
+            vb = (vb || '').toString().toLowerCase();
+            return va < vb ? -dir : (va > vb ? dir : 0);
+        });
+
         var tb = $('#tableSkus tbody');
         tb.innerHTML = '';
-        if (!skus.length) {
+        if (!skuRows.length) {
             tb.innerHTML = '<tr><td colspan="6" class="muted">Sem dados de plano ainda.</td></tr>';
-            return;
+        } else {
+            skuRows.forEach(function (s) {
+                var tr = document.createElement('tr');
+                tr.appendChild(td(s.friendly_name));
+                tr.appendChild(td(s.sku_part_number));
+                tr.appendChild(td(intBR(s.enabled), 'num'));
+                tr.appendChild(td(intBR(s.consumed), 'num'));
+                tr.appendChild(td(intBR(s.available), 'num'));
+                tr.appendChild(td((s.usage_pct != null ? s.usage_pct : 0) + '%', 'num'));
+                tb.appendChild(tr);
+            });
         }
-        skus.forEach(function (s) {
-            var tr = document.createElement('tr');
-            tr.appendChild(td(s.friendly_name));
-            tr.appendChild(td(s.sku_part_number));
-            tr.appendChild(td(intBR(s.enabled), 'num'));
-            tr.appendChild(td(intBR(s.consumed), 'num'));
-            tr.appendChild(td(intBR(s.available), 'num'));
-            tr.appendChild(td((s.usage_pct != null ? s.usage_pct : 0) + '%', 'num'));
-            tb.appendChild(tr);
+        SKU_COLS.forEach(function (c) {
+            var th = document.querySelector('#tableSkus th[data-key="' + c.key + '"]');
+            if (!th) return;
+            var arrow = (skuSort.key === c.key) ? (skuSort.dir === 'asc' ? ' ▲' : ' ▼') : ' ⇅';
+            th.textContent = c.label + arrow;
+            th.classList.toggle('sorted', skuSort.key === c.key);
         });
     }
 
@@ -161,6 +198,18 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         $('#lookupForm').addEventListener('submit', doLookup);
+        document.querySelectorAll('#tableSkus th.sortable').forEach(function (th) {
+            th.addEventListener('click', function () {
+                var key = th.getAttribute('data-key');
+                if (skuSort.key === key) {
+                    skuSort.dir = skuSort.dir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    skuSort.key = key;
+                    skuSort.dir = (key === 'friendly_name' || key === 'sku_part_number') ? 'asc' : 'desc';
+                }
+                sortAndRenderSkus();
+            });
+        });
         $('#loadDetail').addEventListener('click', function () {
             $('#detailWrap').hidden = false;
             this.hidden = true;

@@ -9,6 +9,11 @@ class LicenseRepository
 {
     private Database $db;
 
+    // Oculta licencas "gratuitas"/ilimitadas: mantem apenas planos com
+    // adquiridas entre 2 e 9999 (esconde >= 10000 ou <= 1). Afeta cards,
+    // grafico e tabela de forma consistente.
+    private const PAID_FILTER = 'enabled > 1 AND enabled < 10000';
+
     public function __construct(Database $db)
     {
         $this->db = $db;
@@ -63,7 +68,8 @@ class LicenseRepository
                     COALESCE(SUM(consumed),0)  AS consumed,
                     COUNT(*)                   AS sku_count,
                     MAX(captured_at)           AS captured_at
-               FROM license_skus"
+               FROM license_skus
+              WHERE " . self::PAID_FILTER
         ) ?? [];
 
         $users = $this->db->queryOne(
@@ -91,6 +97,7 @@ class LicenseRepository
             "SELECT sku_id, sku_part_number, friendly_name,
                     enabled, consumed, suspended, warning, capability_status
                FROM license_skus
+              WHERE " . self::PAID_FILTER . "
               ORDER BY enabled DESC, friendly_name ASC"
         );
         foreach ($rows as &$r) {
