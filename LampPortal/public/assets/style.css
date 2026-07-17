@@ -21,7 +21,7 @@ body {
     line-height: 1.5;
 }
 
-.wrap { max-width: 1160px; margin: 0 auto; padding: 0 20px; }
+.wrap { max-width: 1440px; margin: 0 auto; padding: 0 20px; }
 
 /* ---- Top bar ---- */
 .topbar {
@@ -110,7 +110,7 @@ body {
 .chip-clear:hover { background: var(--brand-dark); }
 
 /* ---- Cards ---- */
-.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 22px 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 22px 0; }
 .card {
     background: var(--card); border-radius: 12px; padding: 18px 20px;
     box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 6px;
