@@ -111,6 +111,58 @@ class LicenseRepository
     }
 
     /**
+     * Detalhe de um plano (SKU): a linha + as funcionalidades (service plans)
+     * decodificadas do JSON e traduzidas para nomes amigaveis. Retorna null
+     * se o SKU nao existir.
+     */
+    public function skuDetail(string $skuId): ?array
+    {
+        $row = $this->db->queryOne(
+            "SELECT sku_id, sku_part_number, friendly_name, enabled, consumed,
+                    suspended, warning, capability_status, service_plans, captured_at
+               FROM license_skus
+              WHERE sku_id = :sid
+              LIMIT 1",
+            [':sid' => $skuId]
+        );
+        if (!$row) {
+            return null;
+        }
+
+        $row['enabled']   = (int)$row['enabled'];
+        $row['consumed']  = (int)$row['consumed'];
+        $row['suspended'] = (int)$row['suspended'];
+        $row['warning']   = (int)$row['warning'];
+        $row['available'] = max(0, $row['enabled'] - $row['consumed']);
+        $row['usage_pct'] = $row['enabled'] > 0
+            ? round($row['consumed'] * 100 / $row['enabled'], 1) : 0.0;
+
+        $plans = [];
+        $decoded = json_decode((string)($row['service_plans'] ?? ''), true);
+        if (is_array($decoded)) {
+            foreach ($decoded as $p) {
+                $name = (string)($p['servicePlanName'] ?? '');
+                if ($name === '') {
+                    continue;
+                }
+                $plans[] = [
+                    'name'     => $name,
+                    'friendly' => ServicePlans::friendly($name),
+                    'status'   => (string)($p['provisioningStatus'] ?? ''),
+                    'applies'  => (string)($p['appliesTo'] ?? ''),
+                ];
+            }
+            usort($plans, static function ($a, $b) {
+                return strcasecmp($a['friendly'], $b['friendly']);
+            });
+        }
+        $row['plans'] = $plans;
+        unset($row['service_plans']);
+
+        return $row;
+    }
+
+    /**
      * Logins (usuarios) com uma licenca. Filtro opcional por SKU e busca.
      */
     public function users(string $skuId = '', string $search = '', int $limit = 2000): array

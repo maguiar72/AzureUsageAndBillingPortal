@@ -536,9 +536,26 @@ Install-Module Microsoft.Graph -Scope CurrentUser      # uma vez
     -ImportToken "COLE_O_TOKEN"
 ```
 O script faz `Connect-MgGraph` (login do admin), coleta `Get-MgSubscribedSku`
-+ `Get-MgUser` e faz POST em `api/license_import.php`. Pode ser agendado
-(Agendador de Tarefas) para atualizar periodicamente. A partir daí a aba
-mostra contagens **e** a consulta por usuário — direto do snapshot importado.
+(incluindo os **service plans**/funcionalidades de cada plano) + `Get-MgUser`
+e faz POST em `api/license_import.php`. Pode ser agendado (Agendador de
+Tarefas) para atualizar periodicamente. A partir daí a aba mostra contagens
+**e** a consulta por usuário — direto do snapshot importado.
+
+> Clicando no **nome de um plano** na tabela, abre-se `plano.php` em nova aba
+> com todas as **funcionalidades** (service plans) daquele plano. Isso exige a
+> coluna `service_plans` (ver 12.5) e uma coleta **após** essa mudança.
+
+### 12.5 Migração da coluna `service_plans` (bancos já existentes)
+
+Bancos **novos** já criam a coluna pelo `schema.sql`. Em um banco **já em
+produção**, rode a migração idempotente uma vez antes de reimportar:
+
+```bash
+mysql -h "$DB_HOST" -u "$DB_USER" -p azure_portal \
+    < sql/migrations/2026-07-add-service-plans.sql
+```
+
+Depois **rode o PowerShell (12.4) novamente** para popular os service plans.
 
 ---
 

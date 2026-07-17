@@ -66,8 +66,8 @@ try {
     $insSku = $pdo->prepare(
         'INSERT INTO license_skus
             (tenant_id, sku_id, sku_part_number, friendly_name, enabled,
-             consumed, suspended, warning, capability_status, captured_at)
-         VALUES (:t,:sid,:part,:fname,:en,:cons,:susp,:warn,:cap,NOW())'
+             consumed, suspended, warning, capability_status, service_plans, captured_at)
+         VALUES (:t,:sid,:part,:fname,:en,:cons,:susp,:warn,:cap,:sp,NOW())'
     );
     $nSku = 0;
     foreach ($skus as $s) {
@@ -82,6 +82,7 @@ try {
             ':susp'  => (int)($s['suspended'] ?? 0),
             ':warn'  => (int)($s['warning'] ?? 0),
             ':cap'   => mb_substr((string)($s['capabilityStatus'] ?? ''), 0, 50),
+            ':sp'    => json_encode($s['servicePlans'] ?? [], JSON_UNESCAPED_UNICODE),
         ]);
         $nSku++;
     }

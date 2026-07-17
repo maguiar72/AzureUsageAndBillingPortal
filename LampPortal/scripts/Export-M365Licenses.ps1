@@ -34,6 +34,13 @@ Write-Host "Tenant: $tenantId" -ForegroundColor DarkGray
 # ---- SKUs (planos: adquiridas x em uso) ----
 Write-Host "Coletando SKUs (subscribedSkus)..." -ForegroundColor Cyan
 $skus = Get-MgSubscribedSku -All | ForEach-Object {
+    $plans = @($_.ServicePlans | ForEach-Object {
+        [pscustomobject]@{
+            servicePlanName    = "$($_.ServicePlanName)"
+            provisioningStatus = "$($_.ProvisioningStatus)"
+            appliesTo          = "$($_.AppliesTo)"
+        }
+    })
     [pscustomobject]@{
         skuId            = $_.SkuId
         skuPartNumber    = $_.SkuPartNumber
@@ -42,6 +49,7 @@ $skus = Get-MgSubscribedSku -All | ForEach-Object {
         suspended        = [int]$_.PrepaidUnits.Suspended
         warning          = [int]$_.PrepaidUnits.Warning
         capabilityStatus = "$($_.CapabilityStatus)"
+        servicePlans     = $plans
     }
 }
 Write-Host ("  {0} SKU(s)." -f $skus.Count) -ForegroundColor DarkGray

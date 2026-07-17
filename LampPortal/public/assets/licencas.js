@@ -8,10 +8,6 @@
     'use strict';
 
     var chart = null;
-    var currentSku = '';
-    var currentSkuName = '';
-    var searchTimer = null;
-    var detailLoaded = false;
 
     function $(s) { return document.querySelector(s); }
     function toast(msg, kind) {
@@ -101,7 +97,19 @@
         } else {
             skuRows.forEach(function (s) {
                 var tr = document.createElement('tr');
-                tr.appendChild(td(s.friendly_name));
+                var nameTd = document.createElement('td');
+                if (s.sku_id) {
+                    var a = document.createElement('a');
+                    a.href = 'plano.php?sku=' + encodeURIComponent(s.sku_id);
+                    a.target = '_blank';
+                    a.rel = 'noopener';
+                    a.className = 'plan-link';
+                    a.textContent = s.friendly_name || s.sku_part_number || '—';
+                    nameTd.appendChild(a);
+                } else {
+                    nameTd.textContent = s.friendly_name || '—';
+                }
+                tr.appendChild(nameTd);
                 tr.appendChild(td(s.sku_part_number));
                 tr.appendChild(td(intBR(s.enabled), 'num'));
                 tr.appendChild(td(intBR(s.consumed), 'num'));
@@ -162,34 +170,6 @@
         }).catch(function () { out.innerHTML = '<div class="warn">Erro de rede na consulta.</div>'; });
     }
 
-    /* ---------- Detalhamento opcional (todos os logins) ---------- */
-    function loadUsers() {
-        var q = $('#userSearch').value.trim();
-        var url = 'api/license_users.php?limit=3000' + (q ? '&q=' + encodeURIComponent(q) : '');
-        getJSON(url).then(function (d) {
-            var rows = d.users || [];
-            var tb = $('#tableUsers tbody');
-            tb.innerHTML = '';
-            if (!rows.length) {
-                tb.innerHTML = '<tr><td colspan="4" class="muted">Sem dados (requer User.Read.All + coleta).</td></tr>';
-            } else {
-                rows.forEach(function (r) {
-                    var tr = document.createElement('tr');
-                    tr.appendChild(td(r.user_principal_name));
-                    tr.appendChild(td(r.display_name));
-                    tr.appendChild(td(r.friendly_name));
-                    var st = document.createElement('td');
-                    st.innerHTML = r.account_enabled ? '<span class="badge ok">ativa</span>' : '<span class="badge off">bloqueada</span>';
-                    tr.appendChild(st);
-                    tb.appendChild(tr);
-                });
-            }
-            $('#usersHint').textContent = rows.length
-                ? ('Exibindo ' + rows.length + ' atribuicao(oes).' + (rows.length >= 3000 ? ' Refine a busca.' : ''))
-                : '';
-        });
-    }
-
     function formatDateTime(sqlDt) {
         if (!sqlDt) return '—';
         var d = new Date(sqlDt.replace(' ', 'T'));
@@ -209,14 +189,6 @@
                 }
                 sortAndRenderSkus();
             });
-        });
-        $('#loadDetail').addEventListener('click', function () {
-            $('#detailWrap').hidden = false;
-            this.hidden = true;
-            if (!detailLoaded) { detailLoaded = true; loadUsers(); }
-        });
-        $('#userSearch').addEventListener('input', function () {
-            clearTimeout(searchTimer); searchTimer = setTimeout(loadUsers, 350);
         });
         var wait = setInterval(function () {
             if (window.Chart) { clearInterval(wait); loadSummary(); }

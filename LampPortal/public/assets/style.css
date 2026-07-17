@@ -142,6 +142,26 @@ body {
 .table th.sortable.sorted { color: var(--brand); }
 .table thead th { position: sticky; top: 0; background: var(--card); z-index: 1; }
 
+/* Espacamento amplo para melhor leitura (tabela de planos e detalhe) */
+#tableSkus { font-size: 14.5px; }
+#tableSkus th, #tableSkus td,
+.table.roomy th, .table.roomy td { padding: 15px 18px; }
+#tableSkus tbody tr, .table.roomy tbody tr { line-height: 1.5; }
+
+/* Link do nome do plano (abre detalhe em nova aba) */
+.plan-link { color: var(--brand); text-decoration: none; font-weight: 600; }
+.plan-link:hover { text-decoration: underline; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+
+/* Cabecalho da pagina de detalhe do plano */
+.plan-hero { margin: 4px 0 18px; }
+.plan-hero h2 { margin: 4px 0 6px; }
+.plan-sku {
+    display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px; color: var(--muted); background: #f1f5f9;
+    padding: 3px 8px; border-radius: 6px;
+}
+
 /* Dica de coluna / drill-down */
 .col-hint { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
 

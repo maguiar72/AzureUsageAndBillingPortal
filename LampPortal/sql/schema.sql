@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS `license_skus` (
   `suspended`         INT          NOT NULL DEFAULT 0,
   `warning`           INT          NOT NULL DEFAULT 0,
   `capability_status` VARCHAR(50)  NOT NULL DEFAULT '',
+  `service_plans`     TEXT         NULL,  -- JSON: funcionalidades do plano
   `captured_at`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`tenant_id`,`sku_id`),
   KEY `ix_sku_part` (`sku_part_number`)

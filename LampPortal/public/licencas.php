@@ -88,32 +88,12 @@ $assetVer = static function (string $rel): string {
         </div>
         <div id="lookupResult" class="lookup-result"></div>
     </section>
-
-    <section class="panel">
-        <div class="panel-head">
-            <div>
-                <h2>Detalhamento por usuario (todos os logins)</h2>
-                <span class="col-hint">Opcional &middot; requer a permissao User.Read.All. Pode conter dados pessoais.</span>
-            </div>
-            <button id="loadDetail" class="btn-ghost" type="button">Carregar detalhamento</button>
-        </div>
-        <div id="detailWrap" hidden>
-            <input type="search" id="userSearch" class="search" placeholder="Filtrar por login ou nome..." style="margin-bottom:10px">
-            <div class="table-scroll">
-                <table class="table" id="tableUsers">
-                    <thead><tr><th>Login (UPN)</th><th>Nome</th><th>Licenca</th><th>Conta</th></tr></thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-            <p class="hint" id="usersHint"></p>
-        </div>
-    </section>
 </main>
 
 <footer class="footer wrap">
-    <p>Dados de licenciamento do Microsoft Graph. Contagens: permissao Organization.Read.All.
-       Logins por usuario: permissao User.Read.All. Aba publica &mdash; considere restringir
-       o acesso da rede se expuser dados pessoais.</p>
+    <p>Dados de licenciamento do Microsoft Graph. Clique no nome de um plano para ver
+       suas funcionalidades. A consulta por e-mail e feita sob demanda &mdash; as
+       identidades nao sao listadas em massa.</p>
 </footer>
 
 <script src="<?= htmlspecialchars($assetVer('assets/licencas.js'), ENT_QUOTES) ?>" defer></script>
