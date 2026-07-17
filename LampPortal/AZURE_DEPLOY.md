@@ -432,8 +432,11 @@ az containerapp hostname list -g "$RG" -n "$APP" -o table
 ## 12. (Opcional) Aba de Licenciamento M365 (Graph + login Entra ID)
 
 A aba de **Licenciamento** (planos O365 E1/E3/E5, adquiridas × em uso e os
-logins atribuídos) usa o **Microsoft Graph** e fica **protegida por login
-Entra ID** (o portal de custos continua público). Requer 3 ajustes.
+logins atribuídos) usa o **Microsoft Graph**. Por padrão a aba é **pública**
+com degradação graciosa: as **contagens** aparecem com `Organization.Read.All`
+e a **consulta por usuário / detalhamento** ligam com `User.Read.All`.
+O passo **13.2 (Easy Auth)** é **opcional** — use-o só se quiser exigir login
+Entra ID para ver a aba (recomendado se expuser dados pessoais).
 
 ### 13.1 Conceder permissões do Graph à Managed Identity (admin do Entra ID)
 

@@ -162,10 +162,13 @@ class Extractor
         try {
             $tenants = $this->licenseTenants();
             $totalSkus = 0;
+            $userNotes = '';
             foreach ($tenants as $tenant) {
-                $totalSkus += $this->extractLicensesForTenant($tenant);
+                $r = $this->extractLicensesForTenant($tenant);
+                $totalSkus += $r['skus'];
+                $userNotes .= $r['userNote'];
             }
-            return " Licencas: {$totalSkus} SKU(s) em " . count($tenants) . ' tenant(s).';
+            return " Licencas: {$totalSkus} SKU(s) em " . count($tenants) . " tenant(s).{$userNotes}";
         } catch (Throwable $e) {
             return ' Licencas (falha): ' . $e->getMessage();
         }
@@ -188,24 +191,28 @@ class Extractor
         return array_keys($tenants);
     }
 
-    /** Snapshot de SKUs e atribuicoes de um tenant (substitui os dados). */
-    private function extractLicensesForTenant(string $tenant): int
+    /**
+     * Snapshot de licencas de um tenant, em duas partes independentes:
+     *  1) SKUs (contagens) - requer Organization.Read.All;
+     *  2) usuarios/logins  - requer User.Read.All (OPCIONAL: se falhar, as
+     *     contagens sao preservadas e o detalhamento fica pendente).
+     *
+     * @return array{skus:int, userNote:string}
+     */
+    private function extractLicensesForTenant(string $tenant): array
     {
-        $skus  = $this->azure->getSubscribedSkus($tenant);
-        $users = $this->azure->getUsersWithLicenses($tenant);
+        $pdo = $this->db->pdo();
 
-        // Mapa skuId -> skuPartNumber (para rotular as atribuicoes).
+        // ---- Parte 1: SKUs (obrigatoria; se falhar, lanca) ----
+        $skus = $this->azure->getSubscribedSkus($tenant);
         $skuPart = [];
         foreach ($skus as $s) {
             $skuPart[(string)($s['skuId'] ?? '')] = (string)($s['skuPartNumber'] ?? '');
         }
 
-        $pdo = $this->db->pdo();
         $pdo->beginTransaction();
         try {
             $pdo->prepare('DELETE FROM license_skus WHERE tenant_id = ?')->execute([$tenant]);
-            $pdo->prepare('DELETE FROM license_assignments WHERE tenant_id = ?')->execute([$tenant]);
-
             $insSku = $pdo->prepare(
                 'INSERT INTO license_skus
                     (tenant_id, sku_id, sku_part_number, friendly_name, enabled,
@@ -227,7 +234,21 @@ class Extractor
                     ':cap'   => mb_substr((string)($s['capabilityStatus'] ?? ''), 0, 50),
                 ]);
             }
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
 
+        // ---- Parte 2: usuarios/logins (opcional) ----
+        $userNote = '';
+        try {
+            $users = $this->azure->getUsersWithLicenses($tenant);
+
+            $pdo->beginTransaction();
+            $pdo->prepare('DELETE FROM license_assignments WHERE tenant_id = ?')->execute([$tenant]);
             $insAsg = $pdo->prepare(
                 'INSERT IGNORE INTO license_assignments
                     (tenant_id, user_principal_name, display_name, sku_id,
@@ -254,14 +275,16 @@ class Extractor
                     ]);
                 }
             }
-
             $pdo->commit();
         } catch (Throwable $e) {
-            $pdo->rollBack();
-            throw $e;
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            // Detalhamento por usuario indisponivel (ex.: falta User.Read.All).
+            $userNote = ' (detalhamento por usuario pendente: ' . $e->getMessage() . ')';
         }
 
-        return count($skus);
+        return ['skus' => count($skus), 'userNote' => $userNote];
     }
 
     /** Garante que as subscriptions do config existam na tabela. */

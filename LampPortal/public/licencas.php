@@ -1,11 +1,9 @@
 <?php
 declare(strict_types=1);
 $config = require __DIR__ . '/../src/bootstrap.php';
-require __DIR__ . '/api/_auth.php';
 
-// Aba protegida: exige login Entra ID (Easy Auth). Anonimo -> redireciona.
-$user = require_auth_page('/licencas.php');
-
+// Aba PUBLICA (sem login). As contagens exigem Organization.Read.All e o
+// detalhamento por usuario exige User.Read.All na Managed Identity.
 $siteName = htmlspecialchars($config['app']['site_name'] ?? 'Portal Azure', ENT_QUOTES);
 $assetVer = static function (string $rel): string {
     $path = __DIR__ . '/' . $rel;
@@ -37,20 +35,18 @@ $assetVer = static function (string $rel): string {
                 <a href="index.php">Custos Azure</a>
                 <a href="licencas.php" class="active">Licenciamento</a>
             </nav>
-            <span class="whoami" title="Usuario autenticado">👤 <?= htmlspecialchars($user, ENT_QUOTES) ?></span>
-            <a class="btn-ghost" href="/.auth/logout">Sair</a>
         </div>
     </div>
 </header>
 
 <main class="wrap">
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="licStatus" class="warn" role="status" hidden></div>
 
     <section class="cards">
         <div class="card"><span class="card-label">Licencas adquiridas</span><span class="card-value" id="cAcq">—</span></div>
         <div class="card"><span class="card-label">Em uso</span><span class="card-value" id="cUse">—</span></div>
         <div class="card"><span class="card-label">Disponiveis</span><span class="card-value" id="cAvail">—</span></div>
-        <div class="card"><span class="card-label">Usuarios com licenca</span><span class="card-value" id="cUsers">—</span></div>
         <div class="card"><span class="card-label">Planos (SKUs)</span><span class="card-value" id="cSkus">—</span></div>
         <div class="card"><span class="card-label">Ultima coleta</span><span class="card-value small" id="cWhen">—</span></div>
     </section>
@@ -72,33 +68,48 @@ $assetVer = static function (string $rel): string {
                     <tbody></tbody>
                 </table>
             </div>
-            <p class="hint">Clique num plano para ver os logins atribuidos.</p>
         </section>
     </div>
 
     <section class="panel">
         <div class="panel-head">
             <div>
-                <h2>Logins atribuidos <span id="usersScope" class="tag">todos</span></h2>
-                <span class="col-hint">Dados restritos - visiveis apenas a usuarios autenticados</span>
+                <h2>Consulta por usuario (login / e-mail)</h2>
+                <span class="col-hint">Digite o e-mail e veja as licencas atribuidas a esse usuario (consulta ao vivo).</span>
             </div>
-            <input type="search" id="userSearch" class="search" placeholder="Buscar por login ou nome...">
+            <form id="lookupForm" class="lookup">
+                <input type="email" id="lookupEmail" class="search" placeholder="fulano@trf3.jus.br" autocomplete="off">
+                <button type="submit" class="btn-refresh"><span class="label">Consultar</span></button>
+            </form>
         </div>
-        <div class="table-scroll">
-            <table class="table" id="tableUsers">
-                <thead><tr>
-                    <th>Login (UPN)</th><th>Nome</th><th>Licenca</th><th>Conta</th>
-                </tr></thead>
-                <tbody></tbody>
-            </table>
+        <div id="lookupResult" class="lookup-result"></div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-head">
+            <div>
+                <h2>Detalhamento por usuario (todos os logins)</h2>
+                <span class="col-hint">Opcional &middot; requer a permissao User.Read.All. Pode conter dados pessoais.</span>
+            </div>
+            <button id="loadDetail" class="btn-ghost" type="button">Carregar detalhamento</button>
         </div>
-        <p class="hint" id="usersHint"></p>
+        <div id="detailWrap" hidden>
+            <input type="search" id="userSearch" class="search" placeholder="Filtrar por login ou nome..." style="margin-bottom:10px">
+            <div class="table-scroll">
+                <table class="table" id="tableUsers">
+                    <thead><tr><th>Login (UPN)</th><th>Nome</th><th>Licenca</th><th>Conta</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <p class="hint" id="usersHint"></p>
+        </div>
     </section>
 </main>
 
 <footer class="footer wrap">
-    <p>Dados de licenciamento coletados do Microsoft Graph (subscribedSkus + usuarios).
-       Acesso restrito por autenticacao Entra ID.</p>
+    <p>Dados de licenciamento do Microsoft Graph. Contagens: permissao Organization.Read.All.
+       Logins por usuario: permissao User.Read.All. Aba publica &mdash; considere restringir
+       o acesso da rede se expuser dados pessoais.</p>
 </footer>
 
 <script src="<?= htmlspecialchars($assetVer('assets/licencas.js'), ENT_QUOTES) ?>" defer></script>

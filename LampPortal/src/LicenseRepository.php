@@ -14,6 +14,31 @@ class LicenseRepository
         $this->db = $db;
     }
 
+    /** Mapa skuId => nome amigavel (a partir do snapshot de SKUs). */
+    public function skuMap(): array
+    {
+        $map = [];
+        foreach ($this->db->query("SELECT sku_id, friendly_name FROM license_skus") as $r) {
+            $map[(string)$r['sku_id']] = (string)$r['friendly_name'];
+        }
+        return $map;
+    }
+
+    /** Nota da ultima extracao referente a licencas (diagnostico na UI). */
+    public function extractionNote(): array
+    {
+        $r = $this->db->queryOne(
+            "SELECT finished_at, message FROM extraction_log
+              WHERE status <> 'running' ORDER BY id DESC LIMIT 1"
+        );
+        $msg = (string)($r['message'] ?? '');
+        $note = '';
+        if (preg_match('/Licencas[^|]*/u', $msg, $m)) {
+            $note = trim($m[0]);
+        }
+        return ['when' => $r['finished_at'] ?? null, 'note' => $note];
+    }
+
     /** Totais gerais (todas as SKUs / tenants). */
     public function totals(): array
     {

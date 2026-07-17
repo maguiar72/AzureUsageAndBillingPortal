@@ -157,6 +157,14 @@ body {
 .muted { color: var(--muted); }
 .hint { color: var(--muted); font-size: 12.5px; margin: 10px 2px 0; }
 
+/* ---- Consulta por usuario (licenciamento) ---- */
+.lookup { display: flex; gap: 8px; align-items: center; }
+.lookup-result { margin-top: 12px; }
+.lookup-card { border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; background: #f8fafc; }
+.lookup-head { font-size: 15px; margin-bottom: 8px; }
+.lic-list { margin: 0; padding-left: 18px; }
+.lic-list li { padding: 2px 0; }
+
 /* ---- Footer ---- */
 .footer { color: var(--muted); font-size: 13px; padding: 24px 20px 40px; }
 

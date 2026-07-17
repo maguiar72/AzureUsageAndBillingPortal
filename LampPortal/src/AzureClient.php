@@ -192,6 +192,31 @@ class AzureClient
     }
 
     /**
+     * Consulta AO VIVO as licencas de UM usuario (por UPN/e-mail).
+     * Retorna ['found'=>bool, 'user'=>array|null]. Lanca em 403 (permissao)
+     * para o chamador exibir a mensagem adequada.
+     */
+    public function getUserLicenses(string $upn, string $tenantId): array
+    {
+        $token = $this->getAccessToken($tenantId, $this->graphBase());
+        $url = $this->graphBase() . '/v1.0/users/' . rawurlencode($upn)
+             . '?$select=displayName,userPrincipalName,accountEnabled,assignedLicenses';
+
+        [$status, $resp] = $this->httpRequest('GET', $url, null, [
+            'Authorization: Bearer ' . $token,
+            'Accept: application/json',
+        ]);
+
+        if ($status === 200) {
+            return ['found' => true, 'user' => json_decode($resp, true) ?: []];
+        }
+        if ($status === 404) {
+            return ['found' => false, 'user' => null];
+        }
+        throw new RuntimeException("Microsoft Graph (HTTP {$status}): " . $this->extractError($resp));
+    }
+
+    /**
      * Consulta os custos (ActualCost) de uma subscription num intervalo,
      * detalhados por RECURSO x DIA.
      *

@@ -5,10 +5,7 @@
  */
 declare(strict_types=1);
 $config = require __DIR__ . '/_common.php';
-require __DIR__ . '/_auth.php';
 header('Cache-Control: no-store');
-
-require_auth_api();
 
 $db = get_db($config);
 $repo = new LicenseRepository($db);
