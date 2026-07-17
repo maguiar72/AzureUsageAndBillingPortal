@@ -31,6 +31,10 @@ $assetVer = static function (string $rel): string {
             </div>
         </div>
         <div class="controls">
+            <nav class="topnav">
+                <a href="index.php" class="active">Custos Azure</a>
+                <a href="licencas.php">Licenciamento</a>
+            </nav>
             <select id="rangeSelect" aria-label="Periodo">
                 <option value="1">Ultimo dia</option>
                 <option value="7">Ultimos 7 dias</option>

@@ -21,7 +21,7 @@ body {
     line-height: 1.5;
 }
 
-.wrap { max-width: 1160px; margin: 0 auto; padding: 0 20px; }
+.wrap { max-width: 1440px; margin: 0 auto; padding: 0 20px; }
 
 /* ---- Top bar ---- */
 .topbar {
@@ -38,7 +38,20 @@ body {
 .brand h1 { font-size: 20px; margin: 0; font-weight: 650; }
 .subtitle { margin: 2px 0 0; font-size: 13px; color: #cbd5e1; }
 
-.controls { display: flex; align-items: center; gap: 10px; }
+.controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* ---- Nav entre abas (Custos / Licenciamento) ---- */
+.topnav { display: flex; gap: 4px; margin-right: 6px; }
+.topnav a {
+    color: #cbd5e1; text-decoration: none; font-size: 14px; font-weight: 600;
+    padding: 8px 12px; border-radius: 8px;
+}
+.topnav a:hover { background: #16264a; color: #fff; }
+.topnav a.active { background: var(--brand); color: #fff; }
+.whoami { color: #cbd5e1; font-size: 13px; }
+.badge { font-size: 12px; font-weight: 600; border-radius: 999px; padding: 2px 9px; }
+.badge.ok { background: #dcfce7; color: #166534; }
+.badge.off { background: #fee2e2; color: #991b1b; }
 #rangeSelect {
     padding: 9px 12px; border-radius: 8px; border: 1px solid #33507f;
     background: #16264a; color: #fff; font-size: 14px; cursor: pointer;
@@ -97,7 +110,7 @@ body {
 .chip-clear:hover { background: var(--brand-dark); }
 
 /* ---- Cards ---- */
-.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 22px 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 22px 0; }
 .card {
     background: var(--card); border-radius: 12px; padding: 18px 20px;
     box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 6px;
@@ -129,6 +142,31 @@ body {
 .table th.sortable.sorted { color: var(--brand); }
 .table thead th { position: sticky; top: 0; background: var(--card); z-index: 1; }
 
+/* Espacamento amplo para melhor leitura (tabela de planos e detalhe) */
+#tableSkus { font-size: 14.5px; min-width: 520px; }
+#tableSkus th, #tableSkus td,
+.table.roomy th, .table.roomy td { padding: 15px 18px; }
+#tableSkus tbody tr, .table.roomy tbody tr { line-height: 1.5; }
+/* Coluna "Plano": largura minima para nao quebrar palavra por palavra */
+#tableSkus th:first-child, #tableSkus td:first-child { min-width: 170px; }
+
+/* Na aba de licencas, a tabela de planos recebe mais espaco que o grafico. */
+.lic-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+
+/* Link do nome do plano (abre detalhe em nova aba) */
+.plan-link { color: var(--brand); text-decoration: none; font-weight: 600; }
+.plan-link:hover { text-decoration: underline; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }
+
+/* Cabecalho da pagina de detalhe do plano */
+.plan-hero { margin: 4px 0 18px; }
+.plan-hero h2 { margin: 4px 0 6px; }
+.plan-sku {
+    display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px; color: var(--muted); background: #f1f5f9;
+    padding: 3px 8px; border-radius: 6px;
+}
+
 /* Dica de coluna / drill-down */
 .col-hint { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
 
@@ -143,6 +181,14 @@ body {
 .table-scroll { overflow-x: auto; max-height: 520px; overflow-y: auto; }
 .muted { color: var(--muted); }
 .hint { color: var(--muted); font-size: 12.5px; margin: 10px 2px 0; }
+
+/* ---- Consulta por usuario (licenciamento) ---- */
+.lookup { display: flex; gap: 8px; align-items: center; }
+.lookup-result { margin-top: 12px; }
+.lookup-card { border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; background: #f8fafc; }
+.lookup-head { font-size: 15px; margin-bottom: 8px; }
+.lic-list { margin: 0; padding-left: 18px; }
+.lic-list li { padding: 2px 0; }
 
 /* ---- Footer ---- */
 .footer { color: var(--muted); font-size: 13px; padding: 24px 20px 40px; }

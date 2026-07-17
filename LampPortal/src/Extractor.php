@@ -92,11 +92,15 @@ class Extractor
                 }
             }
 
+            // Licenciamento Microsoft 365 (opcional). Uma falha aqui NAO
+            // derruba a extracao de custos - vira apenas uma nota.
+            $licenseNote = $this->extractLicensesSafe();
+
             if ($errors) {
                 // Sucesso parcial: dados bons ja gravados; reporta as falhas.
                 $msg = "Concluido com {$totalRows} registros; "
                      . count($errors) . ' assinatura(s) com erro: '
-                     . implode(' || ', $errors);
+                     . implode(' || ', $errors) . $licenseNote;
                 $this->db->execute(
                     'UPDATE extraction_log
                         SET finished_at = NOW(), status = ?, rows_upserted = ?, message = ?
@@ -115,7 +119,9 @@ class Extractor
                 'UPDATE extraction_log
                     SET finished_at = NOW(), status = ?, rows_upserted = ?, message = ?
                   WHERE id = ?',
-                ['success', $totalRows, "Extracao concluida ({$totalRows} registros).", $logId]
+                ['success', $totalRows,
+                 mb_substr("Extracao concluida ({$totalRows} registros).{$licenseNote}", 0, 4000),
+                 $logId]
             );
 
             return [
@@ -142,6 +148,144 @@ class Extractor
             flock($lock, LOCK_UN);
             fclose($lock);
         }
+    }
+
+    /**
+     * Extrai o licenciamento M365 sem lancar excecao. Retorna uma nota
+     * (string) para anexar a mensagem do log ('' se ok).
+     */
+    private function extractLicensesSafe(): string
+    {
+        if (empty($this->config['azure']['licenses_enabled'])) {
+            return '';
+        }
+        try {
+            $tenants = $this->licenseTenants();
+            $totalSkus = 0;
+            $userNotes = '';
+            foreach ($tenants as $tenant) {
+                $r = $this->extractLicensesForTenant($tenant);
+                $totalSkus += $r['skus'];
+                $userNotes .= $r['userNote'];
+            }
+            return " Licencas: {$totalSkus} SKU(s) em " . count($tenants) . " tenant(s).{$userNotes}";
+        } catch (Throwable $e) {
+            return ' Licencas (falha): ' . $e->getMessage();
+        }
+    }
+
+    /** Tenants distintos a consultar para licencas. */
+    private function licenseTenants(): array
+    {
+        $default = $this->config['azure']['tenant_id'] ?? '';
+        $tenants = [];
+        if ($default !== '') {
+            $tenants[$default] = true;
+        }
+        foreach ($this->config['azure']['subscriptions'] as $sub) {
+            $t = $sub['tenant_id'] ?? $default;
+            if ($t !== '') {
+                $tenants[$t] = true;
+            }
+        }
+        return array_keys($tenants);
+    }
+
+    /**
+     * Snapshot de licencas de um tenant, em duas partes independentes:
+     *  1) SKUs (contagens) - requer Organization.Read.All;
+     *  2) usuarios/logins  - requer User.Read.All (OPCIONAL: se falhar, as
+     *     contagens sao preservadas e o detalhamento fica pendente).
+     *
+     * @return array{skus:int, userNote:string}
+     */
+    private function extractLicensesForTenant(string $tenant): array
+    {
+        $pdo = $this->db->pdo();
+
+        // ---- Parte 1: SKUs (obrigatoria; se falhar, lanca) ----
+        $skus = $this->azure->getSubscribedSkus($tenant);
+        $skuPart = [];
+        foreach ($skus as $s) {
+            $skuPart[(string)($s['skuId'] ?? '')] = (string)($s['skuPartNumber'] ?? '');
+        }
+
+        $pdo->beginTransaction();
+        try {
+            $pdo->prepare('DELETE FROM license_skus WHERE tenant_id = ?')->execute([$tenant]);
+            $insSku = $pdo->prepare(
+                'INSERT INTO license_skus
+                    (tenant_id, sku_id, sku_part_number, friendly_name, enabled,
+                     consumed, suspended, warning, capability_status, service_plans, captured_at)
+                 VALUES (:t,:sid,:part,:fname,:en,:cons,:susp,:warn,:cap,:sp,NOW())'
+            );
+            foreach ($skus as $s) {
+                $part = (string)($s['skuPartNumber'] ?? '');
+                $prepaid = $s['prepaidUnits'] ?? [];
+                $insSku->execute([
+                    ':t'     => $tenant,
+                    ':sid'   => (string)($s['skuId'] ?? ''),
+                    ':part'  => mb_substr($part, 0, 100),
+                    ':fname' => mb_substr(LicenseSkus::friendly($part), 0, 150),
+                    ':en'    => (int)($prepaid['enabled'] ?? 0),
+                    ':cons'  => (int)($s['consumedUnits'] ?? 0),
+                    ':susp'  => (int)($prepaid['suspended'] ?? 0),
+                    ':warn'  => (int)($prepaid['warning'] ?? 0),
+                    ':cap'   => mb_substr((string)($s['capabilityStatus'] ?? ''), 0, 50),
+                    ':sp'    => json_encode($s['servicePlans'] ?? [], JSON_UNESCAPED_UNICODE),
+                ]);
+            }
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+
+        // ---- Parte 2: usuarios/logins (opcional) ----
+        $userNote = '';
+        try {
+            $users = $this->azure->getUsersWithLicenses($tenant);
+
+            $pdo->beginTransaction();
+            $pdo->prepare('DELETE FROM license_assignments WHERE tenant_id = ?')->execute([$tenant]);
+            $insAsg = $pdo->prepare(
+                'INSERT IGNORE INTO license_assignments
+                    (tenant_id, user_principal_name, display_name, sku_id,
+                     sku_part_number, account_enabled, captured_at)
+                 VALUES (:t,:upn,:dn,:sid,:part,:en,NOW())'
+            );
+            foreach ($users as $u) {
+                $upn = (string)($u['userPrincipalName'] ?? '');
+                if ($upn === '') {
+                    continue;
+                }
+                foreach (($u['assignedLicenses'] ?? []) as $lic) {
+                    $sid = (string)($lic['skuId'] ?? '');
+                    if ($sid === '') {
+                        continue;
+                    }
+                    $insAsg->execute([
+                        ':t'    => $tenant,
+                        ':upn'  => mb_substr($upn, 0, 255),
+                        ':dn'   => mb_substr((string)($u['displayName'] ?? ''), 0, 255),
+                        ':sid'  => $sid,
+                        ':part' => mb_substr($skuPart[$sid] ?? '', 0, 100),
+                        ':en'   => !empty($u['accountEnabled']) ? 1 : 0,
+                    ]);
+                }
+            }
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            // Detalhamento por usuario indisponivel (ex.: falta User.Read.All).
+            $userNote = ' (detalhamento por usuario pendente: ' . $e->getMessage() . ')';
+        }
+
+        return ['skus' => count($skus), 'userNote' => $userNote];
     }
 
     /** Garante que as subscriptions do config existam na tabela. */

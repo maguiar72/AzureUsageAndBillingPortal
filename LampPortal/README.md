@@ -174,6 +174,27 @@ rodar o refresh várias vezes apenas atualiza os mesmos registros.
 | `api/export.php?format=xlsx` | GET    | Exporta relatório em Excel (`.xlsx`) ou HTML (`format=html`) |
 | `api/status.php`             | GET    | Estado da extração atual/última                       |
 | `api/refresh.php`            | POST   | Dispara nova extração (botão Atualizar)               |
+| `api/licenses.php`           | GET    | **(protegido)** Licenciamento M365: SKUs adquiridas × em uso |
+| `api/license_users.php?sku=` | GET    | **(protegido)** Logins atribuídos a uma licença       |
+
+### Aba de Licenciamento M365
+
+`public/licencas.php` mostra as licenças Office/Microsoft 365 (E1/E3/E5…),
+com **degradação graciosa** conforme as permissões do **Microsoft Graph**
+concedidas à Managed Identity:
+
+- **Contagens por plano** (adquiridas × em uso × disponíveis) — requer
+  `Organization.Read.All` (sem dado pessoal).
+- **Consulta por usuário** (digite um e-mail → licenças dele, ao vivo via
+  `api/license_lookup.php`) e **detalhamento** (todos os logins, opcional) —
+  requerem `User.Read.All`.
+
+A extração é granular: as contagens são gravadas mesmo se a parte de usuários
+ainda estiver bloqueada; um banner na página indica o que está pendente.
+Nomes de plano amigáveis em `src/LicenseSkus.php`. A aba é **pública** por
+padrão; opcionalmente pode ser protegida por login Entra ID (Easy Auth) —
+`api/_auth.php` traz os helpers e `AZURE_DEPLOY.md` §12 descreve como.
+Como pode expor dados pessoais (LGPD), considere restringir o acesso da rede.
 
 O parâmetro `days` aceita 1–400 (padrão 30). A “área de negócio” traduz nomes
 técnicos de serviço (ex.: *Foundry Models* → *Inteligência Artificial*,
