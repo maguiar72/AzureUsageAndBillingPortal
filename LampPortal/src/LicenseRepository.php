@@ -14,6 +14,22 @@ class LicenseRepository
         $this->db = $db;
     }
 
+    /** Licencas de um usuario a partir do snapshot (DB). */
+    public function userLicenses(string $upn): array
+    {
+        return $this->db->query(
+            "SELECT a.user_principal_name, a.display_name, a.account_enabled,
+                    a.sku_id,
+                    COALESCE(s.friendly_name, a.sku_part_number) AS friendly_name
+               FROM license_assignments a
+          LEFT JOIN license_skus s
+                 ON s.tenant_id = a.tenant_id AND s.sku_id = a.sku_id
+              WHERE a.user_principal_name = :upn
+              ORDER BY friendly_name ASC",
+            [':upn' => $upn]
+        );
+    }
+
     /** Mapa skuId => nome amigavel (a partir do snapshot de SKUs). */
     public function skuMap(): array
     {

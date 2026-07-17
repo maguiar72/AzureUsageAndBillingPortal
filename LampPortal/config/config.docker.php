@@ -79,5 +79,8 @@ return [
         'currency'   => $env('APP_CURRENCY', 'USD'),
         'refresh_min_interval' => (int)$env('APP_REFRESH_MIN_INTERVAL', 300),
         'runtime_dir' => $env('APP_RUNTIME_DIR', '/tmp/azure-portal-runtime'),
+        // Token para importar licencas via PowerShell (api/license_import.php).
+        // Vazio = importacao desabilitada.
+        'license_import_token' => $env('LICENSE_IMPORT_TOKEN', ''),
     ],
 ];

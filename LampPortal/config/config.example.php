@@ -86,5 +86,9 @@ return [
         // Diretorio gravavel para o lock file da extracao.
         // Deve existir e ser gravavel pelo usuario do Apache/CLI.
         'runtime_dir' => __DIR__ . '/../runtime',
+
+        // Token para importar licencas via PowerShell (api/license_import.php).
+        // Gere um valor forte; vazio = importacao desabilitada.
+        'license_import_token' => '',
     ],
 ];

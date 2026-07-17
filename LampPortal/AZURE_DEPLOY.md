@@ -513,6 +513,33 @@ login Entra ID e, autenticado, você vê os planos e os logins atribuídos. Se
 os cards ficarem zerados, veja `api/status.php` — a mensagem traz
 `Licencas (falha): ...` caso a permissão do Graph ainda não tenha propagado.
 
+### 12.4 Alternativa: importar licenças via PowerShell (sem permissão na MI)
+
+Se **não** for possível conceder as permissões do Graph à Managed Identity
+(passo 13.1/12.1), um **admin** pode rodar um script PowerShell que coleta as
+licenças com as **credenciais dele** (Graph PowerShell) e **envia ao portal**.
+Assim a aba funciona sem tocar na identidade gerenciada.
+
+```bash
+# 1) Defina um token de importacao (secret) no Container App
+TOKEN=$(openssl rand -hex 24)
+az containerapp secret set -g "$RG" -n "$APP" --secrets "license-import-token=$TOKEN"
+az containerapp update    -g "$RG" -n "$APP" --set-env-vars "LICENSE_IMPORT_TOKEN=secretref:license-import-token"
+echo "TOKEN=$TOKEN"   # entregue ao admin que rodara o PowerShell
+```
+
+No computador do admin (Windows/PowerShell 7):
+```powershell
+Install-Module Microsoft.Graph -Scope CurrentUser      # uma vez
+./scripts/Export-M365Licenses.ps1 `
+    -PortalUrl "https://custos-azure.trf3.jus.br" `
+    -ImportToken "COLE_O_TOKEN"
+```
+O script faz `Connect-MgGraph` (login do admin), coleta `Get-MgSubscribedSku`
++ `Get-MgUser` e faz POST em `api/license_import.php`. Pode ser agendado
+(Agendador de Tarefas) para atualizar periodicamente. A partir daí a aba
+mostra contagens **e** a consulta por usuário — direto do snapshot importado.
+
 ---
 
 ## 13. Custos e limpeza

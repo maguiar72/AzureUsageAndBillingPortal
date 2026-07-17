@@ -17,8 +17,31 @@ if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
 }
 
 $db = get_db($config);
-$skuMap = (new LicenseRepository($db))->skuMap();
+$repo = new LicenseRepository($db);
 
+// 1) Snapshot (DB) - funciona com dados importados via PowerShell, sem MI.
+$dbRows = $repo->userLicenses($email);
+if ($dbRows) {
+    $licenses = [];
+    foreach ($dbRows as $r) {
+        $licenses[] = ['sku_id' => $r['sku_id'], 'friendly_name' => $r['friendly_name']];
+    }
+    json_out([
+        'ok'     => true,
+        'found'  => true,
+        'source' => 'snapshot',
+        'user'   => [
+            'user_principal_name' => $dbRows[0]['user_principal_name'],
+            'display_name'        => $dbRows[0]['display_name'],
+            'account_enabled'     => (int)$dbRows[0]['account_enabled'],
+            'licenses'            => $licenses,
+            'license_count'       => count($licenses),
+        ],
+    ]);
+}
+
+// 2) Fallback: consulta AO VIVO no Graph (requer User.Read.All na MI).
+$skuMap = $repo->skuMap();
 $azure  = new AzureClient($config['azure']);
 $tenant = $config['azure']['tenant_id'] ?? '';
 
@@ -52,9 +75,10 @@ foreach (($u['assignedLicenses'] ?? []) as $lic) {
 }
 
 json_out([
-    'ok'    => true,
-    'found' => true,
-    'user'  => [
+    'ok'     => true,
+    'found'  => true,
+    'source' => 'live',
+    'user'   => [
         'user_principal_name' => (string)($u['userPrincipalName'] ?? $email),
         'display_name'        => (string)($u['displayName'] ?? ''),
         'account_enabled'     => !empty($u['accountEnabled']) ? 1 : 0,
