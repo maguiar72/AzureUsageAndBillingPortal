@@ -143,10 +143,15 @@ body {
 .table thead th { position: sticky; top: 0; background: var(--card); z-index: 1; }
 
 /* Espacamento amplo para melhor leitura (tabela de planos e detalhe) */
-#tableSkus { font-size: 14.5px; }
+#tableSkus { font-size: 14.5px; min-width: 520px; }
 #tableSkus th, #tableSkus td,
 .table.roomy th, .table.roomy td { padding: 15px 18px; }
 #tableSkus tbody tr, .table.roomy tbody tr { line-height: 1.5; }
+/* Coluna "Plano": largura minima para nao quebrar palavra por palavra */
+#tableSkus th:first-child, #tableSkus td:first-child { min-width: 170px; }
+
+/* Na aba de licencas, a tabela de planos recebe mais espaco que o grafico. */
+.lic-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
 
 /* Link do nome do plano (abre detalhe em nova aba) */
 .plan-link { color: var(--brand); text-decoration: none; font-weight: 600; }

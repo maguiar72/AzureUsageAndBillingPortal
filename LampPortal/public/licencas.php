@@ -51,7 +51,7 @@ $assetVer = static function (string $rel): string {
         <div class="card"><span class="card-label">Ultima coleta</span><span class="card-value small" id="cWhen">—</span></div>
     </section>
 
-    <div class="grid-2">
+    <div class="grid-2 lic-grid">
         <section class="panel">
             <h2>Adquiridas x Em uso por plano</h2>
             <div class="chart-box"><canvas id="chartSku"></canvas></div>
